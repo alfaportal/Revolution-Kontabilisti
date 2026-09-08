@@ -10,6 +10,8 @@ const aiScanRoutes = require("./routes/ai-scan");
 const adminRoutes = require("./routes/admin");
 
 const PORT = Number(process.env.PORT) || 3000;
+/** Railway edge/proxy përdor IPv6 — `::` = dual-stack (IPv4+IPv6); `0.0.0.0` vetëm IPv4 → 502 */
+const HOST = process.env.HOST || process.env.BIND_HOST || "::";
 const app = express();
 
 app.set("trust proxy", 1);
@@ -46,8 +48,8 @@ app.use((err, _req, res, _next) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, "0.0.0.0", () => {
-    logger.info(`Serveri 0.0.0.0:${PORT} (PORT=${process.env.PORT || "default"}) | Admin: http://localhost:${PORT}/admin`);
+  app.listen(PORT, HOST, () => {
+    logger.info(`Serveri ${HOST}:${PORT} (PORT=${process.env.PORT || "default"}) | Admin: http://localhost:${PORT}/admin`);
     if (!process.env.SUPABASE_URL) logger.info("Mode: local-mock (pa Supabase)");
   });
 }

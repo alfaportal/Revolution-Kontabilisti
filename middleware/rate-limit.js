@@ -5,13 +5,15 @@ const globalRateLimit = rateLimit({
   max: Number(process.env.RATE_LIMIT_MAX) || 120,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
 });
 
 const perDeviceRateLimit = rateLimit({
   windowMs: 60_000,
   max: 30,
-  keyGenerator: (req) => req.body?.device_id || req.ip,
+  keyGenerator: (req) => req.body?.device_id || req.ip || "unknown",
   message: { status: "error", code: "RATE_LIMIT", message: "Shumë kërkesa — provo përsëri" },
+  validate: { trustProxy: false, xForwardedForHeader: false, keyGeneratorIpFallback: false },
 });
 
 module.exports = { globalRateLimit, perDeviceRateLimit };
