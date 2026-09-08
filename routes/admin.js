@@ -1,27 +1,68 @@
 const express = require("express");
 const path = require("path");
 const { requireAdmin } = require("../middleware/admin-auth");
+const { requireBridgeAdmin } = require("../middleware/admin-bridge-auth");
+const { registerClientWithLicense } = require("../services/admin-register");
 const db = require("../services/supabase");
 const { planDefaults } = require("../services/supabase-plans");
 
 const router = express.Router();
 
-router.get("/licenses", requireAdmin, async (_req, res) => {
+/** Bridge telefon — regjistrim klienti + licencë (device_id = Hardware ID desktop) */
+router.post("/clients/register-license", requireBridgeAdmin, async (req, res) => {
+  try {
+    const data = await registerClientWithLicense(req.body || {});
+    res.status(data.already_exists ? 200 : 201).json({
+      ok: true,
+      ...data,
+      already_exists: !!data.already_exists,
+      message: data.already_exists ? "Tashmë ekziston" : "Licenca u regjistrua",
+    });
+  } catch (e) {
+    res.status(400).json({ ok: false, status: "error", message: e.message });
+  }
+});
+
+/** Listë licencash për bridge (telefon) */
+router.get("/clients", requireBridgeAdmin, async (_req, res) => {
+  try {
+    const rows = await db.listAllLicenses();
+    const clients = rows.map((l) => ({
+      id: l.id,
+      emri: l.business_name || "—",
+      email: "",
+      telefoni: l.phone || "",
+      status: l.status === "active" ? "aktiv" : "joaktiv",
+      device_id: l.device_id,
+      hardware_id: l.device_id,
+      license_id: l.id,
+      product_line: "kontabilisti",
+    }));
+    res.json({ ok: true, clients, licenses: rows, product_line: "kontabilisti" });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+});
+
+router.get("/licenses", requireBridgeAdmin, async (_req, res) => {
   try {
     const rows = await db.listAllLicenses();
     res.json({
       licenses: rows.map((l) => ({
+        id: l.id,
+        client_id: l.id,
+        client_name: l.business_name || "—",
         device_id: l.device_id,
-        business_name: l.business_name,
-        owner_name: l.owner_name,
-        phone: l.phone,
-        nui: l.nui,
+        hardware_id: l.device_id,
+        license_key: l.license_key || l.id,
+        celesi: l.license_key || l.id,
+        statusi: l.status === "active" ? "aktive" : l.status || "skaduar",
         status: l.status,
-        plan: l.plan,
-        scans_used: l.scans_used || 0,
-        scans_limit: l.scans_limit || 500,
-        created_at: String(l.created_at || "").slice(0, 10),
+        data_skadimit: String(l.expires_at || "").slice(0, 10),
         expires_at: String(l.expires_at || "").slice(0, 10),
+        last_check_at: l.last_check_at,
+        product_line: "kontabilisti",
+        app_type: "kontabilisti",
       })),
     });
   } catch (e) {
