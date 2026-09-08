@@ -13,7 +13,7 @@ const perDeviceRateLimit = rateLimit({
   max: 30,
   keyGenerator: (req) => req.body?.device_id || req.ip || "unknown",
   message: { status: "error", code: "RATE_LIMIT", message: "Shumë kërkesa — provo përsëri" },
-  validate: { trustProxy: false, xForwardedForHeader: false, keyGeneratorIpFallback: false },
+  validate: { trustProxy: false, xForwardedForHeader: false },
 });
 
 module.exports = { globalRateLimit, perDeviceRateLimit };
