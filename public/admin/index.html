@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revolution Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div id="login-view" class="container login-box">
+    <div class="card">
+      <h2>Revolution Admin</h2>
+      <p style="color:#999;font-size:0.9rem">Hyrje për Naseri — SERVER_SECRET</p>
+      <label>Fjalëkalimi admin</label>
+      <input type="password" id="admin-pass" placeholder="SERVER_SECRET" autocomplete="current-password">
+      <button class="btn btn-primary" id="btn-login">Hyr</button>
+      <p id="login-err" style="color:#e74c3c;display:none;margin-top:10px"></p>
+    </div>
+  </div>
+
+  <div id="app-view" class="hidden">
+    <header>
+      <h1>Revolution Admin Panel</h1>
+      <button class="btn btn-secondary btn-sm" id="btn-logout">Dil</button>
+    </header>
+    <div class="container" id="main-content"></div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

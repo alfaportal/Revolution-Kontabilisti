@@ -1,0 +1,102 @@
+:root {
+  --bg: #0f0f1a;
+  --card: #1a1a2e;
+  --border: #2a2a45;
+  --accent: #ff6b35;
+  --text: #eee;
+  --muted: #999;
+  --ok: #2ecc71;
+  --bad: #e74c3c;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+header h1 { font-size: 1rem; margin: 0; }
+
+.container { padding: 16px; max-width: 720px; margin: 0 auto; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.kpi { text-align: center; padding: 12px; background: var(--card); border-radius: 10px; border: 1px solid var(--border); }
+.kpi .val { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+.kpi .lbl { font-size: 0.75rem; color: var(--muted); }
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-primary { background: var(--accent); color: #fff; width: 100%; }
+.btn-secondary { background: #2a2a45; color: var(--text); }
+.btn-sm { padding: 6px 10px; font-size: 0.78rem; }
+.btn-danger { background: #5a2020; color: #ffb3b3; }
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #12121f;
+  color: var(--text);
+  margin-bottom: 10px;
+  font-size: 1rem;
+}
+
+label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+
+.status-active { color: var(--ok); font-weight: 700; }
+.status-suspended { color: var(--bad); font-weight: 700; }
+
+.license-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+.hidden { display: none !important; }
+
+.login-box { max-width: 360px; margin: 40px auto; }
+
+.plan-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--text);
+  cursor: pointer;
+}
+
+@media (min-width: 600px) {
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+}
