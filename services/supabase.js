@@ -230,6 +230,122 @@ async function updateLicenseByDevice(deviceId, action, value) {
   return { ok: true, license: { ...lic, ...patch } };
 }
 
+async function findById(id) {
+  const lid = String(id || "").trim();
+  if (!lid) return null;
+  if (useMock()) return mock.licenses.find((l) => String(l.id) === lid) || null;
+  const { data } = await getClient().from("licenses").select("*").eq("id", lid).maybeSingle();
+  return data;
+}
+
+function mapAdminStatus(statusi) {
+  const s = String(statusi || "").toLowerCase();
+  if (["aktive", "active", "aktiv"].includes(s)) return "active";
+  if (["revokuar", "revoked"].includes(s)) return "suspended";
+  if (["pezulluar", "suspended"].includes(s)) return "suspended";
+  if (["skaduar", "expired"].includes(s)) return "expired";
+  return s || "active";
+}
+
+async function updateLicenseById(id, patch = {}) {
+  const lic = await findById(id);
+  if (!lic) throw new Error("Licenca nuk u gjet");
+  const row = {};
+  if (patch.business_name != null || patch.emri != null) {
+    row.business_name = String(patch.business_name || patch.emri || "").trim() || null;
+  }
+  if (patch.owner_name != null) row.owner_name = String(patch.owner_name || "").trim() || null;
+  if (patch.phone != null || patch.telefoni != null) {
+    row.phone = String(patch.phone || patch.telefoni || "").trim() || null;
+  }
+  if (patch.device_id != null || patch.hardware_id != null) {
+    const dev = normalizeDeviceId(patch.device_id || patch.hardware_id);
+    if (!dev || !isValidDeviceId(dev)) throw new Error("device_id i pavlefshëm");
+    row.device_id = dev;
+  }
+  if (patch.status != null || patch.statusi != null) row.status = mapAdminStatus(patch.statusi || patch.status);
+  if (patch.expires_at != null || patch.data_skadimit != null) {
+    const raw = patch.expires_at || patch.data_skadimit;
+    row.expires_at = raw ? String(raw).slice(0, 10) + "T23:59:59.999Z" : null;
+  }
+  if (!Object.keys(row).length) throw new Error("Nuk ka fusha për përditësim");
+
+  if (useMock()) {
+    Object.assign(lic, row);
+    return { ...lic };
+  }
+  const { data, error } = await getClient().from("licenses").update(row).eq("id", id).select("*").single();
+  if (error) throw error;
+  return { ...data, license_key: data.license_key || data.id };
+}
+
+async function rotateLicenseKeyById(id) {
+  const lic = await findById(id);
+  if (!lic) throw new Error("Licenca nuk u gjet");
+  const newId = uuidV4();
+  const row = {
+    device_id: lic.device_id,
+    business_name: lic.business_name,
+    owner_name: lic.owner_name,
+    phone: lic.phone,
+    nui: lic.nui,
+    plan: lic.plan || "standard",
+    status: lic.status === "expired" ? "active" : lic.status || "active",
+    scans_used: lic.scans_used || 0,
+    scans_limit: lic.scans_limit,
+    expires_at: lic.expires_at,
+    notes: lic.notes,
+  };
+
+  if (useMock()) {
+    const idx = mock.licenses.findIndex((l) => String(l.id) === String(id));
+    if (idx >= 0) mock.licenses.splice(idx, 1);
+    const next = { ...row, id: newId, license_key: newId };
+    mock.licenses.push(next);
+    return next;
+  }
+
+  const client = getClient();
+  const { error: delErr } = await client.from("licenses").delete().eq("id", id);
+  if (delErr) throw delErr;
+  const { data, error } = await client
+    .from("licenses")
+    .insert({ ...row, id: newId })
+    .select("*")
+    .single();
+  if (error) throw error;
+  try {
+    await client.from("scan_logs").update({ license_id: newId }).eq("license_id", id);
+  } catch {
+    /* scan_logs opsionale */
+  }
+  return { ...data, license_key: data.license_key || data.id, rotated_from: id };
+}
+
+async function extendLicenseById(id, months = 12) {
+  const lic = await findById(id);
+  if (!lic) throw new Error("Licenca nuk u gjet");
+  const base =
+    lic.expires_at && new Date(lic.expires_at) > new Date() ? new Date(lic.expires_at) : new Date();
+  return updateLicenseById(id, {
+    expires_at: addMonths(base, months),
+    statusi: "active",
+  });
+}
+
+async function deleteLicenseById(id) {
+  const lic = await findById(id);
+  if (!lic) throw new Error("Licenca nuk u gjet");
+  if (useMock()) {
+    mock.licenses = mock.licenses.filter((l) => String(l.id) !== String(id));
+    return { ok: true, id };
+  }
+  await getClient().from("scan_logs").delete().eq("license_id", id).catch(() => {});
+  const { error } = await getClient().from("licenses").delete().eq("id", id);
+  if (error) throw error;
+  return { ok: true, id };
+}
+
 async function listAllLicenses() {
   if (useMock()) return [...mock.licenses];
   const { data } = await getClient().from("licenses").select("*").order("created_at", { ascending: false });
@@ -276,6 +392,11 @@ module.exports = {
   incrementScanByDevice,
   createLicense,
   updateLicenseByDevice,
+  updateLicenseById,
+  rotateLicenseKeyById,
+  extendLicenseById,
+  deleteLicenseById,
+  findById,
   listAllLicenses,
   getDashboardStats,
   findByDevice,

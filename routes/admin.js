@@ -115,4 +115,105 @@ router.post("/license/update", requireAdmin, async (req, res) => {
   }
 });
 
+function mapLicenseResponse(lic) {
+  if (!lic) return null;
+  return {
+    id: lic.id,
+    client_id: lic.id,
+    client_name: lic.business_name || "—",
+    device_id: lic.device_id,
+    hardware_id: lic.device_id,
+    license_key: lic.license_key || lic.id,
+    celesi: lic.license_key || lic.id,
+    statusi: lic.status === "active" ? "aktive" : lic.status || "skaduar",
+    status: lic.status,
+    data_skadimit: String(lic.expires_at || "").slice(0, 10),
+    expires_at: lic.expires_at,
+    product_line: "kontabilisti",
+  };
+}
+
+router.patch("/licenses/:id", requireBridgeAdmin, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const patch = { ...body };
+    if (body.emri && !body.business_name) patch.business_name = body.emri;
+    if (body.licenses && Array.isArray(body.licenses) && body.licenses[0]) {
+      Object.assign(patch, body.licenses[0]);
+    }
+    const lic = await db.updateLicenseById(req.params.id, patch);
+    res.json({ ok: true, license: mapLicenseResponse(lic) });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message, message: e.message });
+  }
+});
+
+router.post("/licenses/:id/revoke", requireBridgeAdmin, async (req, res) => {
+  try {
+    const lic = await db.updateLicenseById(req.params.id, { statusi: "suspended" });
+    res.json({ ok: true, license: mapLicenseResponse(lic), revoked: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message });
+  }
+});
+
+router.post("/licenses/:id/reactivate", requireBridgeAdmin, async (req, res) => {
+  try {
+    const lic = await db.updateLicenseById(req.params.id, { statusi: "active" });
+    res.json({ ok: true, license: mapLicenseResponse(lic), reactivated: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message });
+  }
+});
+
+router.post("/licenses/:id/extend", requireBridgeAdmin, async (req, res) => {
+  try {
+    const months = Math.max(1, Math.min(36, Number(req.body?.months) || 12));
+    const lic = await db.extendLicenseById(req.params.id, months);
+    res.json({
+      ok: true,
+      license: mapLicenseResponse(lic),
+      data_skadimit: String(lic.expires_at || "").slice(0, 10),
+      months,
+    });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message });
+  }
+});
+
+router.post("/licenses/:id/rotate-key", requireBridgeAdmin, async (req, res) => {
+  try {
+    const lic = await db.rotateLicenseKeyById(req.params.id);
+    const key = lic.license_key || lic.id;
+    res.json({
+      ok: true,
+      license: mapLicenseResponse(lic),
+      license_key: key,
+      celesi: key,
+      rotated: true,
+      previous_id: req.params.id,
+    });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message });
+  }
+});
+
+router.delete("/licenses/:id", requireBridgeAdmin, async (req, res) => {
+  try {
+    const data = await db.deleteLicenseById(req.params.id);
+    res.json({ ok: true, ...data, product_line: "kontabilisti" });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message });
+  }
+});
+
+router.delete("/clients/:id", requireBridgeAdmin, async (req, res) => {
+  try {
+    const data = await db.deleteLicenseById(req.params.id);
+    res.json({ ok: true, ...data, product_line: "kontabilisti" });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message });
+  }
+});
+
 module.exports = router;
