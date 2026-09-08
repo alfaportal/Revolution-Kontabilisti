@@ -13,11 +13,8 @@ const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 app.set("trust proxy", 1);
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" }, contentSecurityPolicy: false }));
-app.use(cors({ origin: process.env.CORS_ORIGINS?.split(",") || true }));
-app.use(express.json({ limit: "12mb" }));
-app.use(globalRateLimit);
 
+/** Health check — pa rate-limit/auth (Railway healthcheckPath=/health) */
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -26,6 +23,11 @@ app.get("/health", (_req, res) => {
     anthropic: !!process.env.ANTHROPIC_API_KEY,
   });
 });
+
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" }, contentSecurityPolicy: false }));
+app.use(cors({ origin: process.env.CORS_ORIGINS?.split(",") || true }));
+app.use(express.json({ limit: "12mb" }));
+app.use(globalRateLimit);
 
 app.use("/api/license", licenseRoutes);
 app.use("/api/ai", aiScanRoutes);
@@ -45,7 +47,7 @@ app.use((err, _req, res, _next) => {
 
 if (require.main === module) {
   app.listen(PORT, "0.0.0.0", () => {
-    logger.info(`Serveri :${PORT} | Admin: http://localhost:${PORT}/admin`);
+    logger.info(`Serveri 0.0.0.0:${PORT} (PORT=${process.env.PORT || "default"}) | Admin: http://localhost:${PORT}/admin`);
     if (!process.env.SUPABASE_URL) logger.info("Mode: local-mock (pa Supabase)");
   });
 }
