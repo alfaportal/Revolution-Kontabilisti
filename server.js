@@ -12,6 +12,7 @@ const adminRoutes = require("./routes/admin");
 const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
+app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" }, contentSecurityPolicy: false }));
 app.use(cors({ origin: process.env.CORS_ORIGINS?.split(",") || true }));
 app.use(express.json({ limit: "12mb" }));
@@ -43,7 +44,7 @@ app.use((err, _req, res, _next) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  app.listen(PORT, "0.0.0.0", () => {
     logger.info(`Serveri :${PORT} | Admin: http://localhost:${PORT}/admin`);
     if (!process.env.SUPABASE_URL) logger.info("Mode: local-mock (pa Supabase)");
   });

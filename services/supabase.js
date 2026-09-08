@@ -5,13 +5,42 @@ const { normalizeDeviceId, isValidDeviceId } = require("../services/device");
 const mock = { licenses: [], scanLogs: [] };
 let sb = null;
 
+/** Node 20: Realtime kërkon WebSocket — vendose global + transport (supabase-js 2.112+). */
+function loadWsTransport() {
+  try {
+    return require("ws");
+  } catch {
+    return null;
+  }
+}
+
+function ensureNodeWebSocket() {
+  if (typeof globalThis.WebSocket !== "undefined") return loadWsTransport();
+  const ws = loadWsTransport();
+  if (ws) globalThis.WebSocket = ws;
+  return ws;
+}
+
+function supabaseClientOptions() {
+  const wsTransport = ensureNodeWebSocket();
+  const opts = { auth: { persistSession: false, autoRefreshToken: false } };
+  if (wsTransport) opts.realtime = { transport: wsTransport };
+  return opts;
+}
+
 function useMock() {
   return !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
 }
 
 function getClient() {
   if (useMock()) return null;
-  if (!sb) sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!sb) {
+    sb = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      supabaseClientOptions(),
+    );
+  }
   return sb;
 }
 
