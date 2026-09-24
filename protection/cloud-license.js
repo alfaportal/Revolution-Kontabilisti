@@ -163,6 +163,8 @@ function purgeAllLicenseArtifacts(app, message, opts = {}) {
   clearActivationRecord(app);
   try {
     const root = storageRoot(app);
+    const hwLic = path.join(root, ".hw-lic");
+    if (fs.existsSync(hwLic)) fs.unlinkSync(hwLic);
     for (const base of LICENSE_ARTIFACT_BASENAMES) {
       if (base === KEY_FILE || base === ACTIVATION_FILE || base === REVOKED_FILE) continue;
       const p = path.join(root, base);
