@@ -329,6 +329,42 @@ async function activateWithKey(app, license_key, { email } = {}) {
   throw err;
 }
 
+function readHwLicCloudRecord(app) {
+  try {
+    const p = path.join(storageRoot(app), ".hw-lic");
+    if (!fs.existsSync(p)) return null;
+    const j = JSON.parse(fs.readFileSync(p, "utf8"));
+    if (j && j.key && j.source === "cloud") return j;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+async function ensureCloudHwLicenseStartup(app) {
+  registerInstallContext(app);
+  const hwRec = readHwLicCloudRecord(app);
+  if (!hwRec || hwRec.source !== "cloud") {
+    return { ok: true };
+  }
+  const localMark = readStoredLicense(app);
+  try {
+    const online = await validateLicenseOnline(null, app);
+    if (online.valid && !online.offline) {
+      return { ok: true };
+    }
+    if (online.offline) {
+      if (!localMark) return { ok: false, reason: "no_license" };
+      return { ok: true };
+    }
+    purgeAllLicenseArtifacts(app, online.message || NO_LICENSE_MESSAGE, { allowReactivation: true });
+    return { ok: false, reason: "no_license" };
+  } catch {
+    if (!localMark) return { ok: false, reason: "no_license" };
+    return { ok: true };
+  }
+}
+
 function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
   registerInstallContext(app);
   if (_watchdogTimer) return;
@@ -336,7 +372,9 @@ function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
     if (_watchdogInFlight) return;
     _watchdogInFlight = true;
     try {
-      if (!readStoredLicense(app)) return;
+      const localMark = readStoredLicense(app);
+      const hwRec = readHwLicCloudRecord(app);
+      if (!localMark && !hwRec) return;
       const beat = await validateLicenseHeartbeat(null, app);
       if (beat.valid || beat.offline) {
         if (beat.valid && typeof onHeartbeatOk === "function") onHeartbeatOk(beat);
@@ -393,6 +431,8 @@ module.exports = {
   validateLicenseOnline,
   validateLicenseHeartbeat,
   startLicenseWatchdog,
+  ensureCloudHwLicenseStartup,
+  readHwLicCloudRecord,
   isWithinCloudOfflineWindow,
   markLicenseRevokedLocally,
   clearLicenseRevokedLocally,
