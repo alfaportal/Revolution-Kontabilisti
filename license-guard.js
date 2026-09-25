@@ -3,6 +3,7 @@
  * SECRET_SALT i ndarë nga Fiskalizim / Security.
  */
 const path = require("path");
+const { getDeviceId } = require("./license-hardware");
 
 const PROTECTION_DIR = path.join(__dirname, "protection");
 const CONTACT_PHONE = "+383 48707880";
@@ -12,9 +13,8 @@ function getSecretSalt() {
   return Buffer.from("Uk9OVUxVTklPTi1LT05UQUJJTElTVEktSExXQ0stMjAyNi1OQVNFUi1iN2QyZWUxMg==", "base64").toString("utf8");
 }
 
-function getHardwareId(app) {
-  const { getDeviceId } = require("./license-hardware");
-  return getDeviceId(app);
+function getHardwareId(_app) {
+  return getDeviceId();
 }
 
 function formatHardwareId(id) {
@@ -265,6 +265,11 @@ function promptHardwareActivation(app, opts = {}) {
 
 async function ensureHardwareLicense(app, opts = {}) {
   const cloud = require(path.join(PROTECTION_DIR, "cloud-license"));
+  try {
+    await cloud.enforceRevokedBlock(app);
+  } catch {
+    /* vazhdo te aktivizimi HW — pa ErrorBox */
+  }
   cloud.registerInstallContext(app);
 
   const claimed = await cloud.claimByHardwareId(app);

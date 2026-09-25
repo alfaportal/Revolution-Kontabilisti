@@ -1,0 +1,16 @@
+{
+  "name": "revolution-kontabilisti-ai",
+  "version": "1.0.0",
+  "description": "Server AI për skanim faturash — Railway + Supabase licenca + Anthropic",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "express": "^4.21.2"
+  }
+}

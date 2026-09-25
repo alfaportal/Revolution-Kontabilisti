@@ -1,0 +1,291 @@
+/* Kontabilisti UI — strukturë/stil si Revolution Security (Accountant.jsx) */
+.st-kontabilisti .reports-panel-header { margin-bottom: 1rem; }
+.st-kontabilisti .reports-panel-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.st-kontabilisti .reports-panel-sub {
+  margin: 0.25rem 0 0;
+  color: #a0a0b8;
+  font-size: 0.85rem;
+}
+
+.st-kontabilisti .purchases-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.st-kontabilisti .st-kont-period-head { flex-wrap: wrap; gap: 0.75rem; align-items: flex-start; }
+.st-kontabilisti .settings-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #fff;
+}
+.st-kontabilisti .purchases-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.st-kontabilisti .purchases-filter-bar input[type="date"] {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #2e2e45;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  background: #12121f;
+  color: #e8e8ef;
+  font-family: inherit;
+}
+.st-kontabilisti .reports-range-sep { color: #94a3b8; font-weight: 600; }
+.st-kontabilisti .fiscal-save-msg.st-kont-hint {
+  margin: 0.5rem 0 0;
+  color: #a0a0b8;
+  font-size: 0.82rem;
+}
+.st-kontabilisti .kont-period-btn.active {
+  background: #ff6b35 !important;
+  border-color: #ff6b35 !important;
+  color: #fff !important;
+}
+.st-kontabilisti .btn-ghost {
+  background: #252538;
+  color: #c8c8d8;
+  border: 1px solid #3a3a55;
+}
+.st-kontabilisti .btn-ghost:hover {
+  border-color: #ff6b35;
+  color: #ff6b35;
+  background: rgba(255, 107, 53, 0.1);
+}
+
+.st-kontabilisti .dashboard-kpi-row,
+.st-kontabilisti .sec-pasqyra-kpis.st-pasqyra-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.st-kontabilisti .dashboard-kpi {
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 107, 53, 0.22);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+}
+.st-kontabilisti .dashboard-kpi-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #a0a0b8;
+  margin-bottom: 0.35rem;
+}
+.st-kontabilisti .dashboard-kpi-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+.st-kontabilisti .dashboard-kpi-green { border-top: 3px solid #22c55e; }
+.st-kontabilisti .dashboard-kpi-orange { border-top: 3px solid #f97316; }
+.st-kontabilisti .dashboard-kpi-red { border-top: 3px solid #ef4444; }
+.st-kontabilisti .dashboard-kpi-blue { border-top: 3px solid #3b82f6; }
+
+.st-kontabilisti .kont-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+}
+.st-kontabilisti .kont-hub-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(255, 107, 53, 0.28);
+  border-radius: 12px;
+  background: #1a1a2e;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+  font: inherit;
+  color: #e8e8ef;
+}
+.st-kontabilisti .kont-hub-btn:hover {
+  border-color: #ff6b35;
+  box-shadow: 0 4px 18px rgba(255, 107, 53, 0.12);
+  transform: translateY(-1px);
+  background: #252538;
+}
+.st-kontabilisti .kont-hub-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
+  background: rgba(255, 107, 53, 0.18);
+  color: #ff6b35;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+.st-kontabilisti .kont-hub-btn strong { font-size: 0.88rem; font-weight: 700; color: #fff; }
+.st-kontabilisti .kont-hub-btn > span:last-child { font-size: 0.72rem; color: #a0a0b8; line-height: 1.3; }
+
+.st-kontabilisti .kont-sec-back { margin-bottom: 0.65rem; }
+.st-kontabilisti .kont-sec-card {
+  border: 1px solid rgba(255, 107, 53, 0.35);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  background: #1a1a2e;
+}
+.st-kontabilisti .kont-sec-head {
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+.st-kontabilisti .kont-sec-head-left { flex: 1; min-width: 0; }
+.st-kontabilisti .kont-sec-head-left .settings-card-title {
+  font-size: 1.05rem;
+  margin-bottom: 0.15rem;
+}
+.st-kontabilisti .kont-sec-actions { flex-shrink: 0; }
+.st-kontabilisti .kont-sec-note {
+  margin: 0;
+  color: #a0a0b8;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+.st-kontabilisti .kont-kpi-panel {
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 12px;
+  padding: 1rem;
+  background: rgba(22, 22, 42, 0.6);
+}
+.st-kontabilisti .kont-hub-kpis {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+.st-kontabilisti .kont-hub-kpis .dashboard-kpi-val {
+  font-size: 1.05rem;
+}
+.st-kontabilisti .kont-export-btn {
+  font-weight: 600;
+}
+.st-kontabilisti .kont-table-scroll {
+  overflow-x: auto;
+  border: 1px solid #2e2e45;
+  border-radius: 10px;
+  background: #16162a;
+}
+.st-kontabilisti .kont-atk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  min-width: 640px;
+  color: #e8e8ef;
+}
+.st-kontabilisti .kont-atk-table th,
+.st-kontabilisti .kont-atk-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid #2e2e45;
+  text-align: left;
+  white-space: nowrap;
+}
+.st-kontabilisti .kont-atk-table th {
+  background: #1a1a2e;
+  color: #a0a0b8;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+.st-kontabilisti .kont-atk-table tbody tr:hover { background: rgba(255, 107, 53, 0.06); }
+.st-kontabilisti .purchases-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 2rem 1rem !important;
+  font-size: 0.92rem;
+}
+.st-kontabilisti .kont-atk-totals {
+  margin-top: 0.75rem;
+  font-weight: 700;
+  color: #e8e8ef;
+  font-size: 0.88rem;
+}
+.st-kontabilisti .kont-decl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.55rem;
+}
+.st-kontabilisti .kont-decl-grid-wide {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 1100px) {
+  .st-kontabilisti .kont-decl-grid-wide {
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  }
+}
+.st-kontabilisti .kont-decl-summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+.st-kontabilisti .kont-decl-box-summary .val {
+  font-size: 1.25rem;
+}
+.st-kontabilisti .kont-decl-box {
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 107, 53, 0.28);
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+.st-kontabilisti .kont-decl-box .lbl {
+  font-size: 0.7rem;
+  color: #a0a0b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+}
+.st-kontabilisti .kont-decl-box .val {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-top: 0.2rem;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.st-kontabilisti .kont-decl-payable {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 107, 53, 0.14);
+  border: 1px solid rgba(255, 107, 53, 0.4);
+  color: #ff6b35;
+  font-weight: 800;
+  font-size: 1rem;
+}
+.st-kontabilisti .purchases-table-wrap { overflow-x: auto; }
+.st-kontabilisti .kont-inline-label {
+  font-size: 0.8rem;
+  color: #a0a0b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.st-kontabilisti .st-kont-inline-input {
+  width: 100%;
+  min-width: 4.5rem;
+  max-width: 9rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid #3a3a55;
+  background: #252538;
+  color: #e8e8ef;
+  font: inherit;
+  font-size: 0.8rem;
+}

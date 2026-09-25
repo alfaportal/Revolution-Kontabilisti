@@ -14,18 +14,29 @@ const DEVICE_FILE = ".install-device-id";
 const ACTIVATION_FILE = ".cloud-activation.json";
 const REVOKED_FILE = ".lic-revoked";
 const CLOUD_OFFLINE_MAX_MS = 7 * 24 * 60 * 60 * 1000;
-const HEARTBEAT_MS = 45 * 1000;
+const HEARTBEAT_MS = 24 * 60 * 60 * 1000;
 const APP_TYPE = "kontabilisti";
 const NO_LICENSE_MESSAGE = "Ky program nuk ka licencë aktive. Kontaktoni Revolution Invest.";
+
+const REVOKED_USER_MESSAGE =
+  "Licenca është çaktivizuar. Kontaktoni Revolution Invest.";
+
+function licenseHardFailMessage(code) {
+  return code === "NOT_FOUND" ? NO_LICENSE_MESSAGE : REVOKED_USER_MESSAGE;
+}
+
+/** Pa dialog ErrorBox — vetëm ekrani i aktivizimit (HW) shpjegon hapin tjetër. */
+function isActivationNeededCode(code) {
+  return String(code || "").trim() === "NOT_FOUND";
+}
 
 const HARD_LICENSE_FAIL_CODES = new Set([
   "REVOKED",
   "SUSPENDED",
   "EXPIRED",
   "NOT_FOUND",
-  "WRONG_APP",
-  "DEVICE_MISMATCH",
-  "TERMINAL_LIMIT_EXCEEDED",
+  "OFFLINE_EXPIRED",
+  "INVALID",
 ]);
 
 const REVOCATION_FAIL_CODES = new Set(["NOT_FOUND", "REVOKED", "SUSPENDED"]);
@@ -51,9 +62,17 @@ function createInstallDeviceId() {
   return crypto.randomBytes(6).toString("hex").toUpperCase();
 }
 
-function getMachineId(_app) {
-  const raw = [os.hostname(), os.userInfo().username, os.platform(), os.arch()].join("|");
-  return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 12).toUpperCase();
+function getMachineId(app) {
+  const p = path.join(storageRoot(app), DEVICE_FILE);
+  try {
+    if (fs.existsSync(p)) {
+      const id = String(fs.readFileSync(p, "utf8") || "").trim().toUpperCase().replace(/[^A-F0-9]/g, "");
+      if (id.length >= 8) return id.slice(0, 12).padEnd(12, "0").slice(0, 12);
+    }
+  } catch { /* ignore */ }
+  const id = createInstallDeviceId();
+  try { fs.writeFileSync(p, id, "utf8"); } catch { /* ignore */ }
+  return id;
 }
 
 function getHardwareIdForDisplay(app) {
@@ -115,8 +134,12 @@ function readActivationRecord(app) {
   }
 }
 
-function isWithinCloudOfflineWindow(_app) {
-  return true;
+function isWithinCloudOfflineWindow(app) {
+  const rec = readActivationRecord(app);
+  if (!rec?.last_ok_at) return false;
+  const t = new Date(rec.last_ok_at).getTime();
+  if (!Number.isFinite(t)) return false;
+  return Date.now() - t <= CLOUD_OFFLINE_MAX_MS;
 }
 
 function offlineExpiredMessage() {
@@ -146,33 +169,36 @@ function readLocalRevokeBlock(app) {
   }
 }
 
-/** Vetëm skedarët në %AppData%\\RevolutionInvest\\KontabilistiLicense\\ — jo DB, jo DATA_DIR biznesi. */
-const LICENSE_ARTIFACT_BASENAMES = new Set([
-  KEY_FILE,
-  ACTIVATION_FILE,
-  REVOKED_FILE,
-  DEVICE_FILE,
-]);
+function wipeAllActivationData(app) {
+  registerInstallContext(app);
+  clearStoredLicense(app);
+  clearActivationRecord(app);
+  try {
+    const p = path.join(storageRoot(app), ".hw-lic");
+    if (fs.existsSync(p)) fs.unlinkSync(p);
+  } catch {
+    /* ignore */
+  }
+}
 
 function purgeAllLicenseArtifacts(app, message, opts = {}) {
   registerInstallContext(app);
   const allowReactivation = opts.allowReactivation !== false;
   if (allowReactivation) clearLicenseRevokedLocally(app);
   else markLicenseRevokedLocally(app, String(message || NO_LICENSE_MESSAGE));
-  clearStoredLicense(app);
-  clearActivationRecord(app);
-  try {
-    const root = storageRoot(app);
-    const hwLic = path.join(root, ".hw-lic");
-    if (fs.existsSync(hwLic)) fs.unlinkSync(hwLic);
-    for (const base of LICENSE_ARTIFACT_BASENAMES) {
-      if (base === KEY_FILE || base === ACTIVATION_FILE || base === REVOKED_FILE) continue;
-      const p = path.join(root, base);
-      if (fs.existsSync(p)) fs.unlinkSync(p);
+  wipeAllActivationData(app);
+}
+
+function applyRevocationFromCloud(app, code, message, opts = {}) {
+  if (isActivationNeededCode(code)) {
+    try {
+      wipeAllActivationData(app);
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* ignore — purge licencë vetëm */
+    return;
   }
+  purgeAllLicenseArtifacts(app, message || NO_LICENSE_MESSAGE, opts);
 }
 
 function mapCheckPayload(parsed, httpStatus) {
@@ -230,7 +256,7 @@ function persistValidCheck(app, mapped, parsed = {}) {
   });
 }
 
-async function validateLicenseOnline(_key, app) {
+async function validateLicenseOnline(_key, app, opts = {}) {
   registerInstallContext(app);
   try {
     const { mapped, parsed } = await postDeviceCheck(app);
@@ -238,18 +264,18 @@ async function validateLicenseOnline(_key, app) {
       persistValidCheck(app, mapped, parsed);
       return mapped;
     }
-    if (mapped.code === "REVOKED" || mapped.code === "NOT_FOUND") {
-      purgeAllLicenseArtifacts(app, mapped.message || NO_LICENSE_MESSAGE);
+    if (mapped.code && isRevocationCode(mapped.code) && !opts.skipHardFail) {
+      applyRevocationFromCloud(app, mapped.code, mapped.message, { allowReactivation: true });
     }
     return mapped;
   } catch (err) {
     if (isWithinCloudOfflineWindow(app) && readStoredLicense(app)) {
-      return { valid: true, offline: true, message: "Pa internet — licenca lokale.", code: "OK" };
+      return { valid: true, offline: true, message: "Pa internet — brenda 7 ditëve.", code: "OK" };
     }
     return {
       valid: false,
-      code: "OFFLINE",
-      message: err.message || "Pa internet — aktivizoni licencën kur jeni online.",
+      code: "OFFLINE_EXPIRED",
+      message: err.message || offlineExpiredMessage(),
       offline: true,
     };
   }
@@ -264,21 +290,21 @@ async function validateLicenseHeartbeat(_key, app) {
       return { ...mapped, offline: false };
     }
     if (mapped.code && isRevocationCode(mapped.code)) {
-      purgeAllLicenseArtifacts(a, mapped.message || NO_LICENSE_MESSAGE, { allowReactivation: true });
+      applyRevocationFromCloud(app, mapped.code, mapped.message, { allowReactivation: true });
     }
     const forceLogout =
       !!mapped.force_logout ||
       (mapped.code && HEARTBEAT_FORCE_LOGOUT_CODES.has(mapped.code));
-    return { ...mapped, force_logout: forceLogout, offline: false };
+    return { ...mapped, force_logout, offline: false };
   } catch {
     const localRevoke = readLocalRevokeBlock(a);
     if (localRevoke?.blocked) {
       return { valid: false, code: "REVOKED", force_logout: true, message: localRevoke.message };
     }
     if (isWithinCloudOfflineWindow(a) && readStoredLicense(a)) {
-      return { valid: true, offline: true, message: "Pa internet — heartbeat (licenca lokale).", code: "OK" };
+      return { valid: true, offline: true, message: "Pa internet — heartbeat (brenda 7 ditëve).", code: "OK" };
     }
-    return { valid: true, offline: true, message: "Pa internet — vazhdon me licencë të ruajtur.", code: "OK" };
+    return { valid: false, offline: true, code: "OFFLINE_EXPIRED", message: offlineExpiredMessage() };
   }
 }
 
@@ -294,6 +320,61 @@ async function claimByHardwareId(app) {
     };
   }
   return result;
+}
+
+/**
+ * Kontroll revokimi para boot-it — NUK mbyll programin vetëm për .lic-revoked.
+ * Riaktivizimi pastron markerin; bllokim vetëm nëse serveri konfirmon hard-fail online.
+ */
+async function enforceRevokedBlock(app) {
+  registerInstallContext(app);
+  const probe = { skipHardFail: true };
+  const local = readLocalRevokeBlock(app);
+  const key = readStoredLicense(app);
+
+  if (key || readActivationRecord(app)) {
+    try {
+      const online = await validateLicenseOnline(null, app, probe);
+      if (online.valid && !online.offline) {
+        clearLicenseRevokedLocally(app);
+        return { blocked: false };
+      }
+    } catch {
+      /* offline — vazhdo te dialog aktivizimi */
+    }
+  }
+
+  if (local?.blocked || (!key && !readActivationRecord(app))) {
+    return { blocked: false };
+  }
+
+  try {
+    const online = await validateLicenseOnline(null, app, probe);
+    if (online.valid && !online.offline) {
+      clearLicenseRevokedLocally(app);
+      return { blocked: false };
+    }
+    if (online.code && isRevocationCode(online.code) && !online.offline) {
+      if (isActivationNeededCode(online.code)) {
+        try {
+          wipeAllActivationData(app);
+        } catch {
+          /* ignore */
+        }
+        return { blocked: false, code: online.code };
+      }
+      return {
+        blocked: true,
+        message: licenseHardFailMessage(online.code),
+        purged: false,
+        code: online.code,
+      };
+    }
+  } catch {
+    /* offline */
+  }
+
+  return { blocked: false };
 }
 
 async function activateWithKey(app, license_key, { email } = {}) {
@@ -321,48 +402,12 @@ async function activateWithKey(app, license_key, { email } = {}) {
   }
 
   const mapped = mapCheckPayload(parsed, res.status);
-  if (mapped.code === "REVOKED" || mapped.code === "NOT_FOUND") {
-    purgeAllLicenseArtifacts(app, mapped.message || NO_LICENSE_MESSAGE);
+  if (mapped.code && isRevocationCode(mapped.code)) {
+    applyRevocationFromCloud(app, mapped.code, mapped.message, { allowReactivation: true });
   }
   const err = new Error(mapped.message || "Aktivizimi dështoi.");
   err.code = mapped.code || "INVALID";
   throw err;
-}
-
-function readHwLicCloudRecord(app) {
-  try {
-    const p = path.join(storageRoot(app), ".hw-lic");
-    if (!fs.existsSync(p)) return null;
-    const j = JSON.parse(fs.readFileSync(p, "utf8"));
-    if (j && j.key && j.source === "cloud") return j;
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-async function ensureCloudHwLicenseStartup(app) {
-  registerInstallContext(app);
-  const hwRec = readHwLicCloudRecord(app);
-  if (!hwRec || hwRec.source !== "cloud") {
-    return { ok: true };
-  }
-  const localMark = readStoredLicense(app);
-  try {
-    const online = await validateLicenseOnline(null, app);
-    if (online.valid && !online.offline) {
-      return { ok: true };
-    }
-    if (online.offline) {
-      if (!localMark) return { ok: false, reason: "no_license" };
-      return { ok: true };
-    }
-    purgeAllLicenseArtifacts(app, online.message || NO_LICENSE_MESSAGE, { allowReactivation: true });
-    return { ok: false, reason: "no_license" };
-  } catch {
-    if (!localMark) return { ok: false, reason: "no_license" };
-    return { ok: true };
-  }
 }
 
 function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
@@ -373,8 +418,7 @@ function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
     _watchdogInFlight = true;
     try {
       const localMark = readStoredLicense(app);
-      const hwRec = readHwLicCloudRecord(app);
-      if (!localMark && !hwRec) return;
+      if (!localMark && !readActivationRecord(app)) return;
       const beat = await validateLicenseHeartbeat(null, app);
       if (beat.valid || beat.offline) {
         if (beat.valid && typeof onHeartbeatOk === "function") onHeartbeatOk(beat);
@@ -385,7 +429,7 @@ function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
         (beat.code && HARD_LICENSE_FAIL_CODES.has(beat.code))
       ) {
         if (isRevocationCode(beat.code)) {
-          purgeAllLicenseArtifacts(app, beat.message || NO_LICENSE_MESSAGE, { allowReactivation: true });
+          applyRevocationFromCloud(app, beat.code, beat.message, { allowReactivation: true });
         } else {
           clearStoredLicense(app);
           clearActivationRecord(app);
@@ -417,6 +461,7 @@ module.exports = {
   HEARTBEAT_MS,
   HARD_LICENSE_FAIL_CODES,
   REVOCATION_FAIL_CODES,
+  REVOKED_USER_MESSAGE,
   NO_LICENSE_MESSAGE,
   registerInstallContext,
   getMachineId,
@@ -425,14 +470,14 @@ module.exports = {
   writeStoredLicense,
   clearStoredLicense,
   purgeAllLicenseArtifacts,
+  wipeAllActivationData,
+  enforceRevokedBlock,
   isRevocationCode,
   activateWithKey,
   claimByHardwareId,
   validateLicenseOnline,
   validateLicenseHeartbeat,
   startLicenseWatchdog,
-  ensureCloudHwLicenseStartup,
-  readHwLicCloudRecord,
   isWithinCloudOfflineWindow,
   markLicenseRevokedLocally,
   clearLicenseRevokedLocally,

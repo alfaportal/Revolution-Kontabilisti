@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Revolution Kontabilisti</title>
+  <link rel="stylesheet" href="/shell.css?v=1.0.9">
+  <link rel="stylesheet" href="/css/kontabilisti-ui.css?v=1.0.4">
+  <script>
+    function showBootError(msg) {
+      var root = document.getElementById("module-root");
+      var name = document.getElementById("biz-name");
+      if (name) name.textContent = "Gabim startimi";
+      if (root) {
+        root.innerHTML = '<div class="card"><h3>Gabim</h3><p style="color:var(--danger)">' + msg + '</p><button class="btn btn-primary" onclick="location.reload()">Rifresko</button></div>';
+      }
+    }
+    window.addEventListener("error", function (e) { showBootError(e.message || "Gabim JavaScript"); });
+    window.addEventListener("unhandledrejection", function (e) {
+      showBootError((e.reason && e.reason.message) || String(e.reason));
+    });
+    (function () {
+      var p = new URLSearchParams(location.search);
+      if (p.get("protected") === "1") {
+        var s = document.createElement("script");
+        s.src = "/js/security-guard.js?v=1.0.0";
+        document.head.appendChild(s);
+      } else {
+        window.__KONTABILISTI_DEV__ = true;
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-layout">
+    <header class="app-header">
+      <div class="app-brand">
+        <h1>Revolution Kontabilisti <span class="app-ver">v1.2.1</span></h1>
+        <p>Deklarata ATK · Kosovë</p>
+      </div>
+      <div class="app-header-meta">
+        <div>
+          <div class="biz-name" id="biz-name">Duke u ngarkuar...</div>
+          <div class="biz-meta" id="biz-meta"></div>
+        </div>
+        <div id="deadline-badge" style="display:none" aria-hidden="true"></div>
+      </div>
+    </header>
+
+    <nav class="top-tabs" id="nav-list" aria-label="Modulet">
+      <button type="button" class="nav-item active" data-module="pasqyra">📊 Pasqyra</button>
+      <button type="button" class="nav-item" data-module="shitjet">💰 Shitjet</button>
+      <button type="button" class="nav-item" data-module="klientet">👥 Klientët B2B</button>
+      <button type="button" class="nav-item" data-module="blerjet">🛒 Blerjet</button>
+      <button type="button" class="nav-item" data-module="ditari">📓 Ditari</button>
+      <button type="button" class="nav-item" data-module="raportet">📈 Raportet</button>
+      <button type="button" class="nav-item" data-module="kontabilisti">🧮 Kontabilisti</button>
+      <button type="button" class="nav-item nav-urgent-alerts" id="nav-urgent-alerts" data-alerts-trigger="urgent">🚨 Njoftime Urgjente</button>
+      <button type="button" class="nav-item" data-module="dergo-atk">📤 Dërgo në ATK</button>
+      <button type="button" class="nav-item" data-module="ai">🤖 AI</button>
+      <button type="button" class="nav-item" data-module="licenca">🔑 Licenca</button>
+      <button type="button" class="nav-item" data-module="cilesimet">⚙️ Cilësimet</button>
+    </nav>
+
+    <div id="alert-banner" class="alert-banner" style="display:none"></div>
+    <main class="content" id="module-root"></main>
+  </div>
+
+  <div id="wizard-modal" class="modal-overlay" style="display:none">
+    <div class="modal" id="wizard-content"></div>
+  </div>
+
+  <div id="update-modal" class="modal-overlay" style="display:none">
+    <div class="modal" style="max-width:480px">
+      <h2>✅ Revolution Kontabilisti u përditësua</h2>
+      <p style="margin:12px 0;color:var(--text-secondary)">Të dhënat tuaja janë të sigurta.</p>
+      <p id="update-version" style="margin-bottom:8px"></p>
+      <ul id="update-notes" style="margin:0 0 16px 1.2rem;color:var(--text-secondary)"></ul>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" id="update-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="close-modal" class="modal-overlay" style="display:none">
+    <div class="modal" style="max-width:420px">
+      <h2>Mbyll programin?</h2>
+      <p style="margin:16px 0;color:var(--text-secondary)">Dëshiron backup para mbylljes?</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-secondary" id="close-cancel">Anulo</button>
+        <button class="btn btn-secondary" id="close-no-backup">Mbyll pa ruajtur</button>
+        <button class="btn btn-primary" id="close-with-backup">Ruaj dhe Mbyll</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js?v=1.0.1"></script>
+  <script src="/js/csv-export.js?v=1.0.0"></script>
+  <script src="/js/biz-settings.js?v=1.0.7"></script>
+  <script src="/js/biz-wizard.js?v=1.0.8"></script>
+  <script src="/js/deadline-alerts-ui.js?v=1.0.4"></script>
+  <script src="/js/pasqyra-app.js?v=1.0.2"></script>
+  <script src="/js/b2b-invoice.js?v=1.0.1"></script>
+  <script src="/js/shitjet-app.js?v=1.0.11"></script>
+  <script src="/js/klientet-app.js?v=1.0.0"></script>
+  <script src="/js/license-activation.js?v=1.1.0"></script>
+  <script src="/js/licenca-app.js?v=1.0.0"></script>
+  <script src="/js/blerjet-ai-scan.js?v=1.1.1"></script>
+  <script src="/js/blerjet-app.js?v=1.0.3"></script>
+  <script src="/js/ditari-app.js?v=1.0.1"></script>
+  <script src="/js/raportet-app.js?v=1.0.1"></script>
+  <script src="/js/pdf-export.js?v=1.0.5"></script>
+  <script src="/js/kontabilisti-atk.js?v=1.0.5"></script>
+  <script src="/js/kontabilisti-app.js?v=1.0.8"></script>
+  <script src="/js/dergo-atk-app.js?v=1.0.8"></script>
+  <script src="/js/ai-app.js?v=1.0.0"></script>
+  <script src="/js/cilesimet-app.js?v=1.0.17"></script>
+  <script src="/shell.js?v=1.1.1"></script>
+</body>
+</html>

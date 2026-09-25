@@ -37,4 +37,4 @@ PA LEJEN KONKRETE dhe DYHERE të Naserit. Pa përjashtim.
 
 ---
 
-Revolution Kontabilisti — server cloud (Railway). API admin / licenca.
+Revolution Kontabilisti — aplikacion desktop. Libra ATK / TVSH: vetëm me leje të qartë të pronarit.

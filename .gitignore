@@ -6,3 +6,15 @@ node_modules/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+
+dist/
+dist-*/
+dist-build*/
+dist-obfuscated*/
+dist-obfuscated-staging/
+data/
+extracted/
+.build-staging-path
+
+*.exe
+*.lnk

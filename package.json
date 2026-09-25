@@ -1,22 +1,86 @@
 {
-  "name": "revolution-kontabilisti-server",
-  "version": "1.0.0",
-  "description": "Proxy AI + licenca manuale për Revolution Kontabilisti",
-  "main": "server.js",
+  "name": "revolution-kontabilisti",
+  "version": "1.2.1",
+  "description": "Revolution Kontabilisti — softuer kontabiliteti për deklarata ATK",
+  "main": "main.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
-  },
-  "engines": {
-    "node": ">=18"
+    "start": "electron .",
+    "start:dev": "cross-env DEV_MODE=true electron .",
+    "build": "node scripts/build-protected.js",
+    "build:protected": "node scripts/build-protected.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "express-rate-limit": "^7.5.0",
-    "helmet": "^8.0.0",
-    "ws": "^8.21.3"
+    "sql.js": "^1.14.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.8.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "javascript-obfuscator": "^4.2.2",
+    "rcedit": "^4.0.1"
+  },
+  "build": {
+    "appId": "com.revolution.kontabilisti",
+    "productName": "Revolution Kontabilisti",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "build/after-pack.js",
+    "extraResources": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "sql-wasm.wasm"
+      },
+      {
+        "from": "assets/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "dir", "arch": ["x64"] },
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "installer.nsh",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "shortcutName": "Revolution Kontabilisti",
+      "artifactName": "Revolution-Kontabilisti-Setup-v${version}.${ext}"
+    },
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**",
+      "node_modules/sql.js/**",
+      "public/**"
+    ],
+    "files": [
+      "**/*",
+      "!extracted/**",
+      "!dist/**",
+      "!dist-obfuscated/**",
+      "!dist2/**",
+      "!data/**",
+      "!ai-cloud/**",
+      "!tests/**",
+      "!scripts/**",
+      ".checksums.json"
+    ]
   }
 }

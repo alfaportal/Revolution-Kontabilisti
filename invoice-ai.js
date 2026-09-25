@@ -1,0 +1,150 @@
+const INVOICE_SCAN_PROMPT = `Analizo këtë faturë blerje dhe nxirr të dhënat në JSON:
+{
+  "supplier_name": "",
+  "supplier_nui": "",
+  "supplier_fiscal": "",
+  "invoice_number": "",
+  "invoice_date": "YYYY-MM-DD",
+  "items": [
+    {
+      "description": "",
+      "quantity": 0,
+      "unit": "copë",
+      "unit_price": 0.00,
+      "vat_rate": 0.18,
+      "total": 0.00
+    }
+  ],
+  "subtotal": 0.00,
+  "vat_total": 0.00,
+  "grand_total": 0.00,
+  "payment_method": "",
+  "confidence": {
+    "supplier_name": "high/medium/low",
+    "supplier_nui": "high/medium/low/not_found",
+    "supplier_fiscal": "high/medium/low/not_found",
+    "invoice_number": "high/medium/low",
+    "invoice_date": "high/medium/low",
+    "items": "high/medium/low"
+  }
+}
+Kthe VETËM JSON, asgjë tjetër.
+Çmimet janë në Euro (€).
+Normat TVSH në Kosovë: 18% standard, 8% e reduktuar, 0% e përjashtuar.
+Nëse nuk e gjen një fushë, lëre bosh.
+Nëse nuk je i sigurt, vendos confidence = "low".`;
+
+function parseAiJson(text) {
+  const cleaned = String(text || "")
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  return JSON.parse(cleaned);
+}
+
+async function callAnthropic(apiKey, imageBase64, mimeType) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mimeType,
+                data: imageBase64,
+              },
+            },
+            { type: "text", text: INVOICE_SCAN_PROMPT },
+          ],
+        }],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data?.error?.message || data?.error?.type || `HTTP ${res.status}`;
+      const err = new Error(msg);
+      err.code = res.status === 401 ? "invalid_key" : res.status >= 500 ? "network" : "api_error";
+      throw err;
+    }
+    const text = data?.content?.[0]?.text;
+    if (!text) {
+      const err = new Error("Përgjigje e zbrazët nga AI");
+      err.code = "empty_response";
+      throw err;
+    }
+    return text;
+  } catch (e) {
+    if (e.name === "AbortError") {
+      const err = new Error("Koha e analizës skadoi — provo përsëri");
+      err.code = "timeout";
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function testAnthropicKey(apiKey) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 16,
+        messages: [{ role: "user", content: "Përgjigju vetëm: OK" }],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) return { ok: false, error: "Çelësi i pavlefshëm" };
+    if (!res.ok) return { ok: false, error: data?.error?.message || "Gabim lidhje" };
+    return { ok: true, message: "Funksionon" };
+  } catch (e) {
+    if (e.name === "AbortError") return { ok: false, error: "Gabim lidhje — provo përsëri" };
+    return { ok: false, error: e.message || "Gabim lidhje" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function analyzeInvoice(apiKey, imageBase64, mimeType) {
+  const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+  if (!allowed.includes(mimeType)) {
+    const err = new Error("Format i papranuar — përdorni JPG ose PNG");
+    err.code = "bad_format";
+    throw err;
+  }
+  const text = await callAnthropic(apiKey, imageBase64, mimeType);
+  try {
+    return parseAiJson(text);
+  } catch {
+    const err = new Error("AI nuk mundi ta lexojë — regjistro manualisht");
+    err.code = "bad_json";
+    throw err;
+  }
+}
+
+module.exports = { analyzeInvoice, testAnthropicKey, parseAiJson };
