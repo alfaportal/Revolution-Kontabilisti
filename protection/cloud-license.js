@@ -256,6 +256,45 @@ function persistValidCheck(app, mapped, parsed = {}) {
   });
 }
 
+async function validateHardwareWithCloud(app, hardwareId) {
+  const hw = String(hardwareId || getHardwareIdForDisplay(app) || "").trim();
+  if (!hw) {
+    return { valid: false, offline: false, code: "MISSING_HARDWARE", message: "Mungon Hardware ID." };
+  }
+  try {
+    const res = await cloudHealth.requestJson("POST", "/api/license/check-hardware", {
+      hardware_id: hw,
+      device_id: getMachineId(app),
+      app_type: APP_TYPE,
+    });
+    let parsed = {};
+    try {
+      parsed = JSON.parse(res.data || "{}");
+    } catch {
+      parsed = {};
+    }
+    if (res.status < 400 && parsed.valid) {
+      return {
+        valid: true,
+        offline: false,
+        code: parsed.code || "OK",
+        message: parsed.message || "OK",
+      };
+    }
+    const code =
+      String(parsed.code || "").trim() ||
+      (res.status === 404 ? "NOT_FOUND" : res.status >= 500 ? "ERROR" : "NOT_FOUND");
+    return {
+      valid: false,
+      offline: false,
+      code,
+      message: parsed.message || "Licenca nuk është aktive.",
+    };
+  } catch {
+    return { valid: true, offline: true, code: "OFFLINE", message: "Pa internet." };
+  }
+}
+
 async function validateLicenseOnline(_key, app, opts = {}) {
   registerInstallContext(app);
   try {
@@ -419,7 +458,28 @@ function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
     try {
       const localMark = readStoredLicense(app);
       if (!localMark && !readActivationRecord(app)) return;
-      const beat = await validateLicenseHeartbeat(null, app);
+      const beat = localMark
+        ? await validateLicenseHeartbeat(null, app)
+        : await (async () => {
+            const hwCloud = await validateHardwareWithCloud(app);
+            if (hwCloud.offline) {
+              return { valid: true, offline: true, message: hwCloud.message || "Pa internet." };
+            }
+            const code = String(hwCloud.code || "").trim();
+            const forceLogout =
+              !hwCloud.valid &&
+              (code === "REVOKED" ||
+                code === "NOT_FOUND" ||
+                code === "SUSPENDED" ||
+                HEARTBEAT_FORCE_LOGOUT_CODES.has(code));
+            return {
+              valid: !!hwCloud.valid,
+              offline: false,
+              code,
+              force_logout: forceLogout,
+              message: hwCloud.message || "Licenca nuk është aktive.",
+            };
+          })();
       if (beat.valid || beat.offline) {
         if (beat.valid && typeof onHeartbeatOk === "function") onHeartbeatOk(beat);
         return;
@@ -485,4 +545,5 @@ module.exports = {
   readActivationRecord,
   offlineExpiredMessage,
   isLicenseActiveLocally,
+  validateHardwareWithCloud,
 };

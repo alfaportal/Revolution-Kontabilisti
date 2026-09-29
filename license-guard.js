@@ -275,8 +275,30 @@ async function ensureHardwareLicense(app, opts = {}) {
   const claimed = await cloud.claimByHardwareId(app);
   if (claimed?.valid) return { ok: true };
 
-  if (cloud.isWithinCloudOfflineWindow(app) && cloud.isLicenseActiveLocally(app)) {
-    return { ok: true, offline: true };
+  if (cloud.isLicenseActiveLocally(app)) {
+    try {
+      const formatted = formatHardwareId(getHardwareId(app));
+      const onlineResult = await cloud.validateHardwareWithCloud(app, formatted);
+      if (
+        onlineResult &&
+        !onlineResult.offline &&
+        !onlineResult.valid &&
+        (onlineResult.code === "REVOKED" ||
+          onlineResult.code === "NOT_FOUND" ||
+          onlineResult.code === "SUSPENDED")
+      ) {
+        cloud.wipeAllActivationData(app);
+      } else if (
+        cloud.isWithinCloudOfflineWindow(app) &&
+        (onlineResult.valid || onlineResult.offline)
+      ) {
+        return { ok: true, offline: !!onlineResult.offline };
+      }
+    } catch {
+      if (cloud.isWithinCloudOfflineWindow(app)) {
+        return { ok: true, offline: true };
+      }
+    }
   }
 
   if (!isPackagedApp(app)) {
