@@ -18,17 +18,22 @@ function reasonFromValidation(v, cloud, fallback = "no_license") {
   return fallback;
 }
 
-/** Offline grace: .cloud-lic + last_ok_at brenda 7 ditëve (si validateLicenseOnline). */
+/** Offline grace: cache + 7 ditë + aktivizim i konfirmuar nga serveri (jo vetëm skedarë bosh). */
 function allowOfflineGrace(cloud, app) {
-  return cloud.isWithinCloudOfflineWindow(app) && !!cloud.readStoredLicense(app);
+  return (
+    cloud.isWithinCloudOfflineWindow(app) &&
+    cloud.isLicenseActiveLocally(app) &&
+    cloud.hasServerConfirmedActivation(app)
+  );
 }
 
 async function isProdLicenseSatisfied(cloud, app) {
-  const claimed = await cloud.claimByHardwareId(app);
-  if (claimed?.valid) return true;
+  if (!cloud.isLicenseActiveLocally(app) || !cloud.hasServerConfirmedActivation(app)) {
+    return false;
+  }
   const v = await cloud.validateLicenseOnline(null, app);
-  if (v.valid) return true;
-  if (v.offline && allowOfflineGrace(cloud, app)) return true;
+  if (v.valid && !v.offline) return true;
+  if (v.offline && v.code === "OK" && allowOfflineGrace(cloud, app)) return true;
   return false;
 }
 

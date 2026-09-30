@@ -223,8 +223,8 @@ function promptHardwareActivation(app, opts = {}) {
     ipcMain.handle("kont-lic-poll-cloud", async () => {
       try {
         const cloud = require(path.join(PROTECTION_DIR, "cloud-license"));
-        const claimed = await cloud.claimByHardwareId(app);
-        if (claimed?.valid) {
+        const online = await cloud.validateLicenseOnline(null, app, { skipHardFail: true });
+        if (online.valid && !online.offline) {
           syncLocalLicenseCache();
           finish(true);
           return { ok: true };
@@ -290,12 +290,16 @@ async function ensureHardwareLicense(app, opts = {}) {
         cloud.wipeAllActivationData(app);
       } else if (
         cloud.isWithinCloudOfflineWindow(app) &&
-        (onlineResult.valid || onlineResult.offline)
+        (onlineResult.valid ||
+          (onlineResult.offline && onlineResult.code === "OK"))
       ) {
         return { ok: true, offline: !!onlineResult.offline };
       }
     } catch {
-      if (cloud.isWithinCloudOfflineWindow(app)) {
+      if (
+        cloud.isWithinCloudOfflineWindow(app) &&
+        cloud.readStoredLicense(app)
+      ) {
         return { ok: true, offline: true };
       }
     }

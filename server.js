@@ -1332,7 +1332,11 @@ async function syncLicenseCacheFromCloud(app) {
   try {
     const cloud = require("./protection/cloud-license");
     if (app) cloud.registerInstallContext(app);
-    if (cloud.isLicenseActiveLocally(app)) {
+    if (
+      cloud.isLicenseActiveLocally(app) &&
+      cloud.hasServerConfirmedActivation(app) &&
+      cloud.isWithinCloudOfflineWindow(app)
+    ) {
       const rec = cloud.readActivationRecord(app) || {};
       saveLicenseLocal({
         status: "active",

@@ -544,6 +544,15 @@ function isLicenseActiveLocally(app) {
   return !!readStoredLicense(app) && !!readActivationRecord(app);
 }
 
+/** Cache lokale e vlefshme vetëm pas konfirmimit nga cloud (aktivizim / check OK). */
+function hasServerConfirmedActivation(app) {
+  const rec = readActivationRecord(app);
+  if (!rec) return false;
+  const bn = String(rec.business_name || "").trim();
+  const lk = String(rec.license_key || "").trim();
+  return !!(bn || lk);
+}
+
 module.exports = {
   APP_TYPE,
   CLOUD_OFFLINE_MAX_MS,
@@ -574,5 +583,6 @@ module.exports = {
   readActivationRecord,
   offlineExpiredMessage,
   isLicenseActiveLocally,
+  hasServerConfirmedActivation,
   validateHardwareWithCloud,
 };
