@@ -5,6 +5,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { execSync } = require("child_process");
 const JavaScriptObfuscator = require("javascript-obfuscator");
 
 const ROOT = path.join(__dirname, "..");
@@ -133,12 +134,8 @@ function main() {
     copyTree(path.join(ROOT, name), path.join(outDir, name));
   }
 
-  console.log("Kopjim node_modules...");
-  const nmSrc = path.join(ROOT, "node_modules");
-  const nmDest = path.join(outDir, "node_modules");
-  if (fs.existsSync(nmSrc)) {
-    fs.cpSync(nmSrc, nmDest, { recursive: true });
-  }
+  console.log("Instalim node_modules (vetëm prod — pa electron-builder/obfuscator)...");
+  execSync("npm install --omit=dev", { cwd: outDir, stdio: "inherit" });
 
   let count = 0;
   const WALK_SKIP = new Set(["node_modules", ".git"]);

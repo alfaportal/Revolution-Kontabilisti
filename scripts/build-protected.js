@@ -87,6 +87,25 @@ function main() {
   const setupSrc = path.join(buildOutDir, `Revolution-Kontabilisti-Setup-v${pkgVer}.exe`);
   const programDataLaunch = `%ProgramData%\\RevolutionInvest\\Revolution Kontabilisti-Launch\\Start.cmd`;
 
+  try {
+    const unpacked = path.join(buildOutDir, "win-unpacked");
+    if (fs.existsSync(unpacked)) {
+      fs.rmSync(unpacked, { recursive: true, force: true });
+      console.log("  − hequr", path.basename(unpacked));
+    }
+  } catch (e) {
+    console.warn("  ! cleanup win-unpacked:", e.message || e);
+  }
+  try {
+    if (fs.existsSync(stagingPath)) {
+      fs.rmSync(stagingPath, { recursive: true, force: true, maxRetries: 2 });
+      console.log("  − hequr staging:", path.basename(stagingPath));
+    }
+    if (fs.existsSync(STAGING_MARKER)) fs.unlinkSync(STAGING_MARKER);
+  } catch (e) {
+    console.warn("  ! cleanup staging:", e.message || e);
+  }
+
   console.log("\n══════════════════════════════════════");
   console.log(" GATI — Revolution Kontabilisti v" + pkgVer);
   console.log("  Instalues:", setupSrc);
