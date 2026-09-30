@@ -13,6 +13,11 @@ if (app.isPackaged) {
 
 const isProdProtected = () => process.env.KONTABILISTI_PROTECTED === "1" && process.env.DEV_MODE !== "true";
 
+/** Instaluesi (.exe): licenca detyruese — jo varësisht DEV_MODE në mjedis. */
+function mustEnforceLicenseAtBoot() {
+  return app.isPackaged === true;
+}
+
 const { initElectronDataDir } = require("./data-paths");
 initElectronDataDir();
 
@@ -416,12 +421,12 @@ ipcMain.handle("app:version", () => pkg.version);
 ipcMain.handle("license:open-dialog", async () => {
   const cloud = require("./protection/cloud-license");
   const { isProdLicenseSatisfied } = require("./protection/license-boot");
-  if (isProdProtected() && await isProdLicenseSatisfied(cloud, app)) {
+  if (mustEnforceLicenseAtBoot() && await isProdLicenseSatisfied(cloud, app)) {
     await pushLicenseCacheAndNotifyUi(app);
     return { ok: true, active: true };
   }
   const licenseGuard = require("./license-guard");
-  const ok = isProdProtected()
+  const ok = mustEnforceLicenseAtBoot()
     ? await runProdLicenseDialogUntilOk(app, "no_license")
     : await licenseGuard.promptHardwareActivation(app, { reason: "no_license" });
   if (ok) {
@@ -540,8 +545,13 @@ app.whenReady().then(async () => {
       return;
     }
 
+    logStartup(
+      `license boot packaged=${app.isPackaged} enforce=${mustEnforceLicenseAtBoot()} ` +
+        `protected=${isProdProtected()} DEV_MODE=${process.env.DEV_MODE || "(unset)"}`,
+    );
+
     const licenseOk = await bootKontabilistiLicense(app, {
-      isProd: isProdProtected(),
+      isProd: mustEnforceLicenseAtBoot(),
       onRevoke: onLicenseWatchdogBeat,
       onHeartbeatOk: onLicenseHeartbeatOk,
     });
@@ -550,7 +560,7 @@ app.whenReady().then(async () => {
       app.quit();
       return;
     }
-    if (isProdProtected()) {
+    if (mustEnforceLicenseAtBoot()) {
       try {
         await pushLicenseCacheAndNotifyUi(app);
         logStartup("license cache synced");

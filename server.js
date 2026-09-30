@@ -111,26 +111,13 @@ async function refreshLicenseIfStale(force = false) {
   try {
     const check = await checkLicense(deviceId);
     if (!check.valid) {
-      if (s?.license_status === "active") {
-        return {
-          ok: true,
-          active: true,
-          offline: true,
-          status: check.status || s.license_status,
-          expires_at: s.license_expires_at,
-          scans_used: s.license_scans_used,
-          scans_limit: s.license_scans_limit,
-          plan: s.license_plan,
-          business_name: s.license_business_name,
-        };
-      }
       updateSettings({
         license_device_id: deviceId,
         license_status: check.status || "not_found",
         license_last_check_at: new Date().toISOString(),
         ai_license_activated: 0,
       });
-      return { ok: true, active: false, status: check.status };
+      return { ok: true, active: false, status: check.status || "not_found" };
     }
     saveLicenseLocal({
       status: "active",
@@ -151,10 +138,35 @@ async function refreshLicenseIfStale(force = false) {
       business_name: check.business_name,
     };
   } catch (e) {
-    if (s?.license_status === "active") {
-      return { ok: true, active: true, offline: true, expires_at: s.license_expires_at };
+    try {
+      const cloud = require("./protection/cloud-license");
+      if (
+        cloud.isLicenseActiveLocally(null) &&
+        cloud.hasServerConfirmedActivation(null) &&
+        cloud.isWithinCloudOfflineWindow(null)
+      ) {
+        const rec = cloud.readActivationRecord(null) || {};
+        return {
+          ok: true,
+          active: true,
+          offline: true,
+          expires_at: rec.expires_at || s?.license_expires_at,
+          scans_used: s?.license_scans_used,
+          scans_limit: s?.license_scans_limit,
+          plan: rec.plan || s?.license_plan,
+          business_name: rec.business_name || s?.license_business_name,
+        };
+      }
+    } catch {
+      /* ignore */
     }
-    return { ok: false, active: false, error: e.message };
+    updateSettings({
+      license_device_id: deviceId,
+      license_status: "not_found",
+      license_last_check_at: new Date().toISOString(),
+      ai_license_activated: 0,
+    });
+    return { ok: true, active: false, offline: true, error: e.message };
   }
 }
 

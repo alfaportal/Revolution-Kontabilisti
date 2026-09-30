@@ -291,7 +291,11 @@ async function validateHardwareWithCloud(app, hardwareId) {
       message: parsed.message || "Licenca nuk është aktive.",
     };
   } catch {
-    if (isWithinCloudOfflineWindow(app) && readStoredLicense(app)) {
+    if (
+      isWithinCloudOfflineWindow(app) &&
+      readStoredLicense(app) &&
+      hasServerConfirmedActivation(app)
+    ) {
       return {
         valid: true,
         offline: true,
@@ -321,7 +325,11 @@ async function validateLicenseOnline(_key, app, opts = {}) {
     }
     return mapped;
   } catch (err) {
-    if (isWithinCloudOfflineWindow(app) && readStoredLicense(app)) {
+    if (
+      isWithinCloudOfflineWindow(app) &&
+      readStoredLicense(app) &&
+      hasServerConfirmedActivation(app)
+    ) {
       return { valid: true, offline: true, message: "Pa internet — brenda 7 ditëve.", code: "OK" };
     }
     if (!readStoredLicense(app)) {
@@ -361,7 +369,11 @@ async function validateLicenseHeartbeat(_key, app) {
     if (localRevoke?.blocked) {
       return { valid: false, code: "REVOKED", force_logout: true, message: localRevoke.message };
     }
-    if (isWithinCloudOfflineWindow(a) && readStoredLicense(a)) {
+    if (
+      isWithinCloudOfflineWindow(a) &&
+      readStoredLicense(a) &&
+      hasServerConfirmedActivation(a)
+    ) {
       return { valid: true, offline: true, message: "Pa internet — heartbeat (brenda 7 ditëve).", code: "OK" };
     }
     return { valid: false, offline: true, code: "OFFLINE_EXPIRED", message: offlineExpiredMessage() };

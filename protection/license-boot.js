@@ -33,6 +33,7 @@ async function isProdLicenseSatisfied(cloud, app) {
   }
   const v = await cloud.validateLicenseOnline(null, app);
   if (v.valid && !v.offline) return true;
+  if (!v.valid && !v.offline) return false;
   if (v.offline && v.code === "OK" && allowOfflineGrace(cloud, app)) return true;
   return false;
 }
