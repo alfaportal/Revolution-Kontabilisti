@@ -1,6 +1,6 @@
 {
   "name": "revolution-kontabilisti",
-  "version": "1.2.1",
+  "version": "1.2.3",
   "description": "Revolution Kontabilisti — softuer kontabiliteti për deklarata ATK",
   "main": "main.js",
   "scripts": {

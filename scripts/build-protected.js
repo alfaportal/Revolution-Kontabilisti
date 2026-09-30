@@ -32,8 +32,18 @@ function main() {
   const pkgVer = pkg.version || "1.0.0";
   const buildSuffix = String(process.env.KONTABILISTI_BUILD_OUT_SUFFIX || "").trim();
   const buildOutDir = path.join(ROOT, `dist-build-v${pkgVer}${buildSuffix}`);
+  let electronVersion = "33.4.11";
+  try {
+    const electronPkg = path.join(ROOT, "node_modules", "electron", "package.json");
+    if (fs.existsSync(electronPkg)) {
+      electronVersion = JSON.parse(fs.readFileSync(electronPkg, "utf8")).version;
+    }
+  } catch {
+    /* fallback */
+  }
   pkg.build = {
     ...(pkg.build || {}),
+    electronVersion,
     directories: {
       ...(pkg.build?.directories || {}),
       output: buildOutDir,
