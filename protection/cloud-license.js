@@ -291,7 +291,20 @@ async function validateHardwareWithCloud(app, hardwareId) {
       message: parsed.message || "Licenca nuk është aktive.",
     };
   } catch {
-    return { valid: true, offline: true, code: "OFFLINE", message: "Pa internet." };
+    if (isWithinCloudOfflineWindow(app) && readStoredLicense(app)) {
+      return {
+        valid: true,
+        offline: true,
+        code: "OK",
+        message: "Pa internet — brenda 7 ditëve.",
+      };
+    }
+    return {
+      valid: false,
+      offline: true,
+      code: "OFFLINE_EXPIRED",
+      message: "Licenca offline ka skaduar.",
+    };
   }
 }
 
@@ -310,6 +323,14 @@ async function validateLicenseOnline(_key, app, opts = {}) {
   } catch (err) {
     if (isWithinCloudOfflineWindow(app) && readStoredLicense(app)) {
       return { valid: true, offline: true, message: "Pa internet — brenda 7 ditëve.", code: "OK" };
+    }
+    if (!readStoredLicense(app)) {
+      return {
+        valid: false,
+        code: "OFFLINE_NEED_ACTIVATION",
+        message: "Lidhuni me internet për aktivizim.",
+        offline: true,
+      };
     }
     return {
       valid: false,
@@ -463,7 +484,12 @@ function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
         : await (async () => {
             const hwCloud = await validateHardwareWithCloud(app);
             if (hwCloud.offline) {
-              return { valid: true, offline: true, message: hwCloud.message || "Pa internet." };
+              return {
+                valid: !!hwCloud.valid,
+                offline: true,
+                code: hwCloud.code || (hwCloud.valid ? "OK" : "OFFLINE_EXPIRED"),
+                message: hwCloud.message || "Pa internet.",
+              };
             }
             const code = String(hwCloud.code || "").trim();
             const forceLogout =
@@ -480,12 +506,15 @@ function startLicenseWatchdog(app, onForceLogout, onHeartbeatOk) {
               message: hwCloud.message || "Licenca nuk është aktive.",
             };
           })();
-      if (beat.valid || beat.offline) {
-        if (beat.valid && typeof onHeartbeatOk === "function") onHeartbeatOk(beat);
+      if (beat.valid) {
+        if (typeof onHeartbeatOk === "function") onHeartbeatOk(beat);
         return;
       }
+      if (beat.offline && beat.code === "OK") return;
       if (
         beat.force_logout ||
+        beat.code === "OFFLINE_EXPIRED" ||
+        beat.code === "OFFLINE_NEED_ACTIVATION" ||
         (beat.code && HARD_LICENSE_FAIL_CODES.has(beat.code))
       ) {
         if (isRevocationCode(beat.code)) {
