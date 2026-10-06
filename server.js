@@ -1264,6 +1264,72 @@ function buildRoutes() {
     }
   });
 
+  router.get("/auto-backup/status", (_req, res) => {
+    try {
+      const autoBackup = require("./auto-backup");
+      json(res, { ok: true, ...autoBackup.getBackupStatus() });
+    } catch (e) {
+      err(res, e.message, 500);
+    }
+  });
+
+  router.get("/auto-backup/catalog", (_req, res) => {
+    try {
+      const autoBackup = require("./auto-backup");
+      json(res, autoBackup.listRestoreCatalog());
+    } catch (e) {
+      err(res, e.message, 500);
+    }
+  });
+
+  router.post("/auto-backup/run-now", (_req, res) => {
+    try {
+      const autoBackup = require("./auto-backup");
+      const result = autoBackup.runBackupCycle({
+        dbPath: DB_PATH,
+        flushSave: () => {
+          try {
+            getDb().pragma("wal_checkpoint(FULL)");
+          } catch {
+            /* ignore */
+          }
+        },
+        getSettingsSnapshot: () => {
+          const s = getSettings();
+          return {
+            business_legal_name: s?.business_legal_name || "",
+            business_trade_name: s?.business_trade_name || "",
+            municipality: s?.municipality || "",
+          };
+        },
+      });
+      json(res, { ok: !!result.ok, ...result });
+    } catch (e) {
+      err(res, e.message, 500);
+    }
+  });
+
+  router.post("/auto-backup/restore", async (req, res) => {
+    try {
+      const autoBackup = require("./auto-backup");
+      const sourceType = String(req.body?.source_type || req.body?.sourceType || "latest").trim();
+      const sourceId = String(req.body?.source_id || req.body?.sourceId || "latest").trim();
+      const result = autoBackup.restoreFromBackup({
+        targetDbPath: DB_PATH,
+        source_type: sourceType,
+        source_id: sourceId,
+      });
+      if (!result.restored) {
+        return err(res, result.error || "Restore dështoi.", 400);
+      }
+      resetDatabaseConnection();
+      await initDatabase();
+      json(res, { ok: true, message: result.message, restart_required: true });
+    } catch (e) {
+      err(res, e.message, 500);
+    }
+  });
+
   router.post("/admin/factory-reset", (req, res) => {
     const { validateFactoryResetAuth, executeFactoryReset } = require("./factory-reset");
     const b = req.body || {};

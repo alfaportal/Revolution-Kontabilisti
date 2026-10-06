@@ -510,6 +510,20 @@ app.whenReady().then(async () => {
     const mig = migrateLegacyData(logStartup);
     if (mig.migrated) logStartup("migration complete");
 
+    global.__kontabilistiAutoRestoreMessage = "";
+    try {
+      const dataPaths = require("./data-paths");
+      const dbPath = dataPaths.DB_PATH;
+      process.env.KONTABILISTI_DB_PATH = dbPath;
+      const autoBackup = require("./auto-backup");
+      const restore = autoBackup.maybeRestoreOnStartup({ targetDbPath: dbPath });
+      if (restore?.restored && restore.message) {
+        global.__kontabilistiAutoRestoreMessage = restore.message;
+      }
+    } catch (e) {
+      logStartup("[backup] startup restore: " + (e.message || e));
+    }
+
     await initDatabase();
     logStartup("db ok — " + require("./data-paths").DB_PATH);
 
@@ -577,6 +591,52 @@ app.whenReady().then(async () => {
     await waitForServer();
     logStartup("server ok");
     createWindow();
+
+    if (global.__kontabilistiAutoRestoreMessage) {
+      try {
+        dialog.showMessageBoxSync({
+          type: "info",
+          title: "Revolution Kontabilisti",
+          message: "Rikthim nga backup",
+          detail: String(global.__kontabilistiAutoRestoreMessage),
+          buttons: ["OK"],
+        });
+      } catch {
+        /* ignore */
+      }
+      global.__kontabilistiAutoRestoreMessage = "";
+    }
+
+    try {
+      const autoBackup = require("./auto-backup");
+      const { DB_PATH } = require("./data-paths");
+      autoBackup.startAutoBackup({
+        dbPath: DB_PATH,
+        intervalMs: 60 * 1000,
+        flushSave: () => {
+          try {
+            const db = getDb();
+            db.pragma("wal_checkpoint(FULL)");
+          } catch {
+            /* ignore */
+          }
+        },
+        getSettingsSnapshot: () => {
+          try {
+            const s = getSettings();
+            return {
+              business_legal_name: s?.business_legal_name || "",
+              business_trade_name: s?.business_trade_name || "",
+              municipality: s?.municipality || "",
+            };
+          } catch {
+            return {};
+          }
+        },
+      });
+    } catch (e) {
+      logStartup("[backup] auto-start: " + (e.message || e));
+    }
 
     setImmediate(() => {
       try {

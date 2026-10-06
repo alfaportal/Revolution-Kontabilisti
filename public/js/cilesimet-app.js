@@ -313,7 +313,13 @@ const CilesimetApp = {
           <li>✅ Backup automatik kur hapet programi (çdo 24 orë)</li>
           <li>✅ Backup kur mbyllet programi (nëse ka ndryshime)</li>
           <li>Mbaj backups: <strong>30</strong> ditë (mujor: 5 vjet në <code>monthly/</code>)</li>
+          <li>✅ Auto-backup Documents: <code>Revolution Backup/KONTABILISTI</code> (minutë + ditor + mujor)</li>
         </ul>
+        <p id="auto-backup-status-line" class="hint" style="margin:8px 0"></p>
+        <div class="toolbar" style="margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="docs-restore-auto-backup">Rikthe backup (Documents)</button>
+          <button class="btn btn-secondary" id="docs-auto-backup-run">Auto-backup tani (Documents)</button>
+        </div>
         <div class="toolbar" style="margin-top:16px;flex-wrap:wrap">
           <button class="btn btn-primary" id="do-backup">💾 Bëj Backup Tani</button>
           <button class="btn btn-secondary" id="open-backup-dir">📂 Hap Folderin e Backup</button>
@@ -374,6 +380,48 @@ const CilesimetApp = {
       </div>`;
 
     let pendingRestoreFile = null;
+
+    try {
+      const st = await KAPI.api("/auto-backup/status");
+      const el = document.getElementById("auto-backup-status-line");
+      if (el) {
+        const at = st.last_backup_at ? new Date(st.last_backup_at).toLocaleString("sq-AL") : "—";
+        el.textContent = `Documents auto-backup: minutë ${at} · ditorë ${st.daily_count ?? "—"} · mujorë ${st.monthly_count ?? "—"}`;
+      }
+    } catch {
+      const el = document.getElementById("auto-backup-status-line");
+      if (el) el.textContent = "Documents auto-backup: statusi nuk u lexua.";
+    }
+
+    document.getElementById("docs-auto-backup-run")?.addEventListener("click", async () => {
+      try {
+        const r = await KAPI.api("/auto-backup/run-now", { method: "POST", body: {} });
+        KAPI.toast(r.ok ? "Auto-backup Documents OK" : (r.error || "Dështoi"), !r.ok);
+        await this.renderBackup();
+      } catch (e) {
+        KAPI.toast(e.message, true);
+      }
+    });
+
+    document.getElementById("docs-restore-auto-backup")?.addEventListener("click", async () => {
+      try {
+        const cat = await KAPI.api("/auto-backup/catalog");
+        const items = cat.items || [];
+        if (!items.length) return KAPI.toast("Nuk ka backup në Documents", true);
+        const pick = items[0];
+        const raw = `${pick.source_type}:${pick.source_id}`;
+        const [source_type, ...rest] = raw.split(":");
+        const source_id = rest.join(":");
+        if (!confirm(`Riktheni nga ${pick.label}? Rinisni programin pas OK.`)) return;
+        const r = await KAPI.api("/auto-backup/restore", {
+          method: "POST",
+          body: { source_type, source_id },
+        });
+        KAPI.toast(r.message || "U rikthye — rinisni programin.");
+      } catch (e) {
+        KAPI.toast(e.message, true);
+      }
+    });
 
     document.getElementById("do-backup").onclick = async () => {
       const r = window.kontabilisti ? await window.kontabilisti.backupNow() : await KAPI.api("/backup", { method: "POST" });
