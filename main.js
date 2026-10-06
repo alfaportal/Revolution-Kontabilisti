@@ -618,6 +618,26 @@ app.whenReady().then(async () => {
       }
     }
 
+    try {
+      const boot = require(path.join(__dirname, "auto-backup-boot.cjs"));
+      boot.ensureBackupHomeVisible(__dirname, {
+        productName: "KONTABILISTI",
+        getPersistedBackupDir: () => {
+          try {
+            return String(getSettings()?.auto_backup_dir || "").trim();
+          } catch {
+            return "";
+          }
+        },
+        setPersistedBackupDir: (dir) => {
+          const { updateSettings } = require("./database");
+          updateSettings({ auto_backup_dir: String(dir || "").trim() });
+        },
+      });
+    } catch (e) {
+      logStartup("[backup] visible home: " + (e.message || e));
+    }
+
     PORT = await pickPort(PORT);
     process.env.KONTABILISTI_PORT = String(PORT);
     logStartup("port " + PORT);
@@ -648,6 +668,17 @@ app.whenReady().then(async () => {
       autoBackup.startAutoBackup({
         dbPath: DB_PATH,
         intervalMs: 60 * 1000,
+        getPersistedBackupDir: () => {
+          try {
+            return String(getSettings()?.auto_backup_dir || "").trim();
+          } catch {
+            return "";
+          }
+        },
+        setPersistedBackupDir: (dir) => {
+          const { updateSettings } = require("./database");
+          updateSettings({ auto_backup_dir: String(dir || "").trim() });
+        },
         flushSave: () => {
           try {
             const db = getDb();

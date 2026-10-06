@@ -1,11 +1,17 @@
 /**
- * Backup automatik — %UserProfile%/Documents/Revolution Backup/KONTABILISTI/
+ * Backup automatik — Desktop\Revolution Backup\<PRODUKTI> (afër ikonës së programit).
  * Minutë (rotacion 3) + ditor (30 ditë) + mujor (12 muaj).
- * Pa fiscal-keys / pa sidecars .db-master (enkriptim device-bound në protection/db-crypto).
  */
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+let backupLoc;
+try {
+  backupLoc = require(path.join(__dirname, "auto-backup-location.cjs"));
+} catch (e) {
+  console.warn("[backup] auto-backup-location.cjs:", e.message || e);
+  backupLoc = require(path.join(__dirname, "scripts", "auto-backup-location.cjs"));
+}
 
 const PROJECT_NAME = "KONTABILISTI";
 const DEFAULT_INTERVAL_MS = 60 * 1000;
@@ -19,12 +25,44 @@ const DAILY_SUBDIR = "daily";
 const MONTHLY_SUBDIR = "monthly";
 const BUNDLE_DB_NAME = "backup.db";
 
-/** Scope: vetëm .db + settings-backup.json (pa fiscal-keys / pa sidecars — device-bound crypto). */
+/** Scope: vetëm .db, fiscal-keys/, settings-backup.json, sidecars .db-master.* — jo kod burimor. */
 const LICENSE_RESTORE_MESSAGE =
   "Duhet licencë aktive për me rikthy të dhënat. Aktivizoni licencën fillimisht.";
+const DENIED_BACKUP_EXTENSIONS = new Set([
+  ".js",
+  ".mjs",
+  ".cjs",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  ".vue",
+  ".html",
+  ".htm",
+  ".css",
+  ".scss",
+  ".less",
+  ".map",
+  ".exe",
+  ".dll",
+  ".asar",
+  ".bat",
+  ".cmd",
+  ".ps1",
+  ".sh",
+  ".py",
+]);
+const DENIED_BACKUP_BASENAMES = new Set(["package.json", "package-lock.json", "node_modules"]);
 
 function getDefaultBackupDir(projectName = PROJECT_NAME) {
-  return path.join(os.homedir(), "Documents", "Revolution Backup", projectName);
+  return backupLoc.defaultBackupDirectory(projectName);
+}
+
+function resolveBackupDir(opts = {}) {
+  if (opts.backupDir) return path.resolve(opts.backupDir);
+  return backupLoc.resolveBackupDirectory({
+    projectName: PROJECT_NAME,
+    getPersistedDir: opts.getPersistedBackupDir,
+  });
 }
 
 function ensureDir(dir) {
@@ -69,12 +107,50 @@ function copyFileSafe(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
+function isDeniedBackupEntry(name) {
+  const base = String(name || "").toLowerCase();
+  if (DENIED_BACKUP_BASENAMES.has(base)) return true;
+  return DENIED_BACKUP_EXTENSIONS.has(path.extname(base).toLowerCase());
+}
+
 function assertDbPathForBackup(dbPath) {
   const resolved = path.resolve(String(dbPath || ""));
   if (path.extname(resolved).toLowerCase() !== ".db") {
     throw new Error("Backup: lejohet vetëm skedar databaze (.db).");
   }
   return resolved;
+}
+
+function resolveFiscalKeysPath(opts, dataDir) {
+  const fiscalKeysPath = opts.fiscalKeysPath
+    ? path.resolve(opts.fiscalKeysPath)
+    : path.join(dataDir, "fiscal-keys");
+  if (path.basename(fiscalKeysPath).toLowerCase() !== "fiscal-keys") {
+    throw new Error("Backup: fiscalKeysPath duhet të jetë folder 'fiscal-keys'.");
+  }
+  return fiscalKeysPath;
+}
+
+/** Kopjon vetëm përmbajtjen e fiscal-keys (anashkalon .js/.html/css dhe node_modules). */
+function copyFiscalKeysDir(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return false;
+  ensureDir(destDir);
+  for (const name of fs.readdirSync(srcDir)) {
+    if (isDeniedBackupEntry(name)) {
+      console.warn(`[backup] Anashkaluar (jo të dhëna): ${name}`);
+      continue;
+    }
+    const src = path.join(srcDir, name);
+    const dest = path.join(destDir, name);
+    const st = fs.statSync(src);
+    if (st.isDirectory()) {
+      if (String(name).toLowerCase() === "node_modules") continue;
+      copyFiscalKeysDir(src, dest);
+    } else {
+      copyFileSafe(src, dest);
+    }
+  }
+  return true;
 }
 
 function enforceRestoreLicense(opts = {}) {
@@ -130,12 +206,20 @@ function rotateDbBackups(backupDir, stagedLatestPath) {
   fs.renameSync(stagedLatestPath, latest);
 }
 
-function snapshotSidecars(_dataDir, _destDir) {
-  /* KONTABILISTI: pa sidecars */
+function snapshotSidecars(dataDir, destDir) {
+  for (const name of CRYPTO_SIDECARS) {
+    const src = path.join(dataDir, name);
+    if (!fs.existsSync(src)) continue;
+    copyFileSafe(src, path.join(destDir, name));
+  }
 }
 
-function restoreSidecars(_bundleDir, _dataDir) {
-  /* KONTABILISTI: pa sidecars */
+function restoreSidecars(bundleDir, dataDir) {
+  for (const name of CRYPTO_SIDECARS) {
+    const src = path.join(bundleDir, name);
+    if (!fs.existsSync(src)) continue;
+    copyFileSafe(src, path.join(dataDir, name));
+  }
 }
 
 function formatMb(bytes) {
@@ -168,8 +252,12 @@ function writeSettingsFile(dir, payload) {
   );
 }
 
+/** Kopjon DB + fiscal-keys + sidecars + settings në një folder bundle. */
 function copyBackupBundle(bundleDir, opts) {
   const dbPath = assertDbPathForBackup(opts.dbPath);
+  const dataDir = path.dirname(dbPath);
+  const fiscalKeysPath = resolveFiscalKeysPath(opts, dataDir);
+
   if (!dbPath || !fs.existsSync(dbPath)) {
     throw new Error("Databaza nuk u gjet për backup.");
   }
@@ -179,7 +267,8 @@ function copyBackupBundle(bundleDir, opts) {
   const size = fs.statSync(destDb).size;
   if (!size) throw new Error("Backup i databazës doli bosh.");
 
-  snapshotSidecars(path.dirname(dbPath), bundleDir);
+  snapshotSidecars(dataDir, bundleDir);
+  copyFiscalKeysDir(fiscalKeysPath, path.join(bundleDir, "fiscal-keys"));
   writeSettingsFile(bundleDir, buildSettingsPayload(opts, { bundle_dir: bundleDir }));
   return { size, destDb };
 }
@@ -209,6 +298,7 @@ function purgeOldDailyBackups(backupDir) {
     try {
       rmDirRecursive(full);
       removed.push(name);
+      console.log(`[backup] Fshirë backup ditor: ${name} (> ${DAILY_RETENTION_DAYS} ditë)`);
     } catch (e) {
       console.warn(`[backup] purge daily ${name}:`, e.message);
     }
@@ -232,6 +322,7 @@ function purgeOldMonthlyBackups(backupDir) {
     try {
       rmDirRecursive(full);
       removed.push(name);
+      console.log(`[backup] Fshirë backup mujor: ${name} (> ${MONTHLY_RETENTION_MONTHS} muaj)`);
     } catch (e) {
       console.warn(`[backup] purge monthly ${name}:`, e.message);
     }
@@ -240,12 +331,13 @@ function purgeOldMonthlyBackups(backupDir) {
 }
 
 function runDailyBackupIfNeeded(opts) {
-  const backupDir = path.resolve(opts.backupDir || getDefaultBackupDir());
+  const backupDir = resolveBackupDir(opts);
   const today = localDateYmd();
   const state = readState(backupDir);
   if (state.lastDailyBackupDate === today) {
     return { ok: true, skipped: true, reason: "daily_done" };
   }
+
   flushIfNeeded(opts);
   const bundleDir = path.join(backupDir, DAILY_SUBDIR, today);
   const { size } = copyBackupBundle(bundleDir, { ...opts, backupDir });
@@ -257,12 +349,13 @@ function runDailyBackupIfNeeded(opts) {
 }
 
 function runMonthlyBackupIfNeeded(opts) {
-  const backupDir = path.resolve(opts.backupDir || getDefaultBackupDir());
+  const backupDir = resolveBackupDir(opts);
   const month = localMonthYm();
   const state = readState(backupDir);
   if (state.lastMonthlyBackupMonth === month) {
     return { ok: true, skipped: true, reason: "monthly_done" };
   }
+
   flushIfNeeded(opts);
   const bundleDir = path.join(backupDir, MONTHLY_SUBDIR, month);
   const { size } = copyBackupBundle(bundleDir, { ...opts, backupDir });
@@ -287,9 +380,11 @@ function runScheduledDailyMonthly(opts) {
 
 function runBackupCycle(opts = {}) {
   const dbPath = opts.dbPath ? assertDbPathForBackup(opts.dbPath) : "";
-  const backupDir = path.resolve(opts.backupDir || getDefaultBackupDir());
+  const dataDir = dbPath ? path.dirname(dbPath) : "";
+  const backupDir = resolveBackupDir(opts);
+  const fiscalKeysPath = dbPath ? resolveFiscalKeysPath(opts, dataDir) : "";
 
-  runScheduledDailyMonthly({ ...opts, backupDir, dbPath });
+  runScheduledDailyMonthly({ ...opts, backupDir, dbPath, fiscalKeysPath });
 
   if (!dbPath || !fs.existsSync(dbPath)) {
     return { ok: false, skipped: true, reason: "db_missing" };
@@ -302,6 +397,7 @@ function runBackupCycle(opts = {}) {
   }
 
   flushIfNeeded(opts);
+
   const fpAfter = fileFingerprint(dbPath);
   if (!fpAfter) return { ok: false, skipped: true, reason: "db_missing_after_flush" };
 
@@ -315,6 +411,9 @@ function runBackupCycle(opts = {}) {
   }
 
   rotateDbBackups(backupDir, staged);
+  snapshotSidecars(dataDir, backupDir);
+
+  copyFiscalKeysDir(fiscalKeysPath, path.join(backupDir, "fiscal-keys"));
   writeSettingsFile(backupDir, buildSettingsPayload({ ...opts, backupDir, dbPath }));
 
   const backedAt = new Date().toISOString();
@@ -340,10 +439,17 @@ let autoBackupOpts = null;
 
 function startAutoBackup(opts = {}) {
   stopAutoBackup();
+  const backupDir = resolveBackupDir(opts);
+  backupLoc.ensureVisibleBackupHome({
+    backupDir,
+    productName: PROJECT_NAME,
+    setPersistedDir: opts.setPersistedBackupDir,
+    revealExplorerOnce: opts.revealBackupFolder !== false,
+  });
   autoBackupOpts = {
     intervalMs: Number(opts.intervalMs) || DEFAULT_INTERVAL_MS,
     ...opts,
-    backupDir: opts.backupDir || getDefaultBackupDir(),
+    backupDir,
   };
   const tick = () => {
     try {
@@ -381,9 +487,13 @@ function readBundleBackedAt(bundleDir) {
   }
 }
 
-function listRestoreCatalog(backupDir = getDefaultBackupDir()) {
-  const dir = path.resolve(backupDir);
+function listRestoreCatalog(backupDirOrOpts = null) {
+  const dir =
+    backupDirOrOpts && typeof backupDirOrOpts === "object"
+      ? resolveBackupDir(backupDirOrOpts)
+      : path.resolve(backupDirOrOpts || getDefaultBackupDir());
   const items = [];
+
   const latestPath = path.join(dir, BACKUP_DB_NAMES[0]);
   if (fs.existsSync(latestPath) && fs.statSync(latestPath).size > 0) {
     const st = fs.statSync(latestPath);
@@ -399,29 +509,58 @@ function listRestoreCatalog(backupDir = getDefaultBackupDir()) {
       backed_at: backedAt,
     });
   }
+
   const dailyRoot = path.join(dir, DAILY_SUBDIR);
   if (fs.existsSync(dailyRoot)) {
-    for (const day of fs.readdirSync(dailyRoot).filter((n) => /^\d{4}-\d{2}-\d{2}$/.test(n)).sort((a, b) => (a < b ? 1 : -1)).slice(0, DAILY_RETENTION_DAYS)) {
+    const days = fs.readdirSync(dailyRoot)
+      .filter((n) => /^\d{4}-\d{2}-\d{2}$/.test(n))
+      .sort((a, b) => (a < b ? 1 : -1))
+      .slice(0, DAILY_RETENTION_DAYS);
+    for (const day of days) {
       const bundle = path.join(dailyRoot, day);
       if (!bundleHasDb(bundle)) continue;
-      items.push({ source_type: "daily", source_id: day, label: `Ditor — ${day}`, backed_at: readBundleBackedAt(bundle) });
+      items.push({
+        source_type: "daily",
+        source_id: day,
+        label: `Ditor — ${day}`,
+        backed_at: readBundleBackedAt(bundle),
+      });
     }
   }
+
   const monthlyRoot = path.join(dir, MONTHLY_SUBDIR);
   if (fs.existsSync(monthlyRoot)) {
-    for (const month of fs.readdirSync(monthlyRoot).filter((n) => /^\d{4}-\d{2}$/.test(n)).sort((a, b) => (a < b ? 1 : -1)).slice(0, MONTHLY_RETENTION_MONTHS)) {
+    const months = fs.readdirSync(monthlyRoot)
+      .filter((n) => /^\d{4}-\d{2}$/.test(n))
+      .sort((a, b) => (a < b ? 1 : -1))
+      .slice(0, MONTHLY_RETENTION_MONTHS);
+    for (const month of months) {
       const bundle = path.join(monthlyRoot, month);
       if (!bundleHasDb(bundle)) continue;
-      items.push({ source_type: "monthly", source_id: month, label: `Mujor — ${month}`, backed_at: readBundleBackedAt(bundle) });
+      items.push({
+        source_type: "monthly",
+        source_id: month,
+        label: `Mujor — ${month}`,
+        backed_at: readBundleBackedAt(bundle),
+      });
     }
   }
-  return { ok: true, backup_dir: dir, items, latest: items.filter((i) => i.source_type === "latest"), daily: items.filter((i) => i.source_type === "daily"), monthly: items.filter((i) => i.source_type === "monthly") };
+
+  return {
+    ok: true,
+    backup_dir: dir,
+    items,
+    latest: items.filter((i) => i.source_type === "latest"),
+    daily: items.filter((i) => i.source_type === "daily"),
+    monthly: items.filter((i) => i.source_type === "monthly"),
+  };
 }
 
 function resolveRestoreBundle(backupDir, sourceType, sourceId) {
   const dir = path.resolve(backupDir || getDefaultBackupDir());
   const type = String(sourceType || "latest").trim().toLowerCase();
   const id = String(sourceId || "").trim();
+
   if (type === "latest" || !type) {
     const dbFile = path.join(dir, BACKUP_DB_NAMES[0]);
     if (!fs.existsSync(dbFile)) return null;
@@ -444,8 +583,11 @@ function resolveRestoreBundle(backupDir, sourceType, sourceId) {
   return null;
 }
 
-function getBackupStatus(backupDir = getDefaultBackupDir()) {
-  const dir = path.resolve(backupDir);
+function getBackupStatus(backupDirOrOpts = null) {
+  const dir =
+    backupDirOrOpts && typeof backupDirOrOpts === "object"
+      ? resolveBackupDir(backupDirOrOpts)
+      : path.resolve(backupDirOrOpts || getDefaultBackupDir());
   const state = readState(dir);
   const catalog = listRestoreCatalog(dir);
   const latest = path.join(dir, BACKUP_DB_NAMES[0]);
@@ -478,14 +620,16 @@ function isDbMissingOrCorrupt(dbPath) {
     return { needRestore: true, reason: "empty" };
   }
   try {
-    const { readDbFile } = require("./protection/db-crypto");
-    const bytes = readDbFile(p);
-    if (!bytes?.length) {
+    const dbCrypto = require("./db-crypto");
+    const loaded = dbCrypto.loadDatabaseBytes(p);
+    if (!loaded?.bytes?.length) {
       return { needRestore: true, reason: "decrypt_failed" };
     }
-    const head = bytes.slice(0, 15).toString("utf8");
-    if (!head.startsWith("SQLite format 3")) {
-      return { needRestore: true, reason: "invalid_sqlite" };
+    if (loaded.wasPlain) {
+      const head = loaded.bytes.slice(0, 15).toString("utf8");
+      if (!head.startsWith("SQLite format 3")) {
+        return { needRestore: true, reason: "invalid_sqlite" };
+      }
     }
   } catch (e) {
     return { needRestore: true, reason: "load_error", message: e.message };
@@ -497,8 +641,13 @@ function restoreFromBackup(opts = {}) {
   const licenseBlock = enforceRestoreLicense(opts);
   if (licenseBlock) return licenseBlock;
 
-  const backupDir = path.resolve(opts.backupDir || getDefaultBackupDir());
+  const backupDir = resolveBackupDir(opts);
   const targetDbPath = path.resolve(String(opts.targetDbPath || ""));
+  const targetKeysPath = opts.targetKeysPath
+    ? path.resolve(opts.targetKeysPath)
+    : path.join(path.dirname(targetDbPath), "fiscal-keys");
+  const dataDir = path.dirname(targetDbPath);
+
   const source = resolveRestoreBundle(
     backupDir,
     opts.source_type || opts.sourceType || "latest",
@@ -507,12 +656,21 @@ function restoreFromBackup(opts = {}) {
   if (!source) {
     return { ok: false, restored: false, error: "Backup i zgjedhur nuk u gjet." };
   }
+
   const st = fs.statSync(source.dbFile);
   if (!st.size) {
     return { ok: false, restored: false, error: "Skedari i backup-it është bosh." };
   }
-  ensureDir(path.dirname(targetDbPath));
+
+  ensureDir(dataDir);
   copyFileSafe(source.dbFile, targetDbPath);
+  restoreSidecars(source.bundleDir, dataDir);
+
+  const keysSrc = path.join(source.bundleDir, "fiscal-keys");
+  if (fs.existsSync(keysSrc)) {
+    copyFiscalKeysDir(keysSrc, targetKeysPath);
+  }
+
   let backedAt = st.mtime.toISOString();
   const settingsPath = path.join(source.bundleDir, "settings-backup.json");
   if (fs.existsSync(settingsPath)) {
@@ -522,6 +680,7 @@ function restoreFromBackup(opts = {}) {
       else if (settings?.backed_up_at) backedAt = settings.backed_up_at;
     } catch { /* ignore */ }
   }
+
   const message = `Të dhënat u rikthyen nga backup (${source.label}) i datës ${backedAt}`;
   console.log(`[backup] ${message}`);
   return {
@@ -532,6 +691,7 @@ function restoreFromBackup(opts = {}) {
     source_type: opts.source_type || opts.sourceType || "latest",
     source_id: opts.source_id || opts.sourceId,
     db_path: targetDbPath,
+    keys_path: targetKeysPath,
   };
 }
 
@@ -545,6 +705,7 @@ function maybeRestoreOnStartup(opts = {}) {
     ...opts,
     backupDir: opts.backupDir,
     targetDbPath: dbPath,
+    targetKeysPath: opts.targetKeysPath,
     source_type: "latest",
     source_id: "latest",
   });
@@ -554,6 +715,7 @@ function maybeRestoreOnStartup(opts = {}) {
 module.exports = {
   PROJECT_NAME,
   getDefaultBackupDir,
+  resolveBackupDir,
   runBackupCycle,
   runDailyBackupIfNeeded,
   runMonthlyBackupIfNeeded,
