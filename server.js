@@ -1311,6 +1311,15 @@ function buildRoutes() {
 
   router.post("/auto-backup/restore", async (req, res) => {
     try {
+      const gate = require("./auto-backup-restore-gate");
+      const { app: electronApp } = require("electron");
+      if (!(await gate.isLicenseActiveForDataRestore(electronApp))) {
+        return json(
+          res,
+          { ok: false, error: gate.MESSAGE, license_required: true },
+          403,
+        );
+      }
       const autoBackup = require("./auto-backup");
       const sourceType = String(req.body?.source_type || req.body?.sourceType || "latest").trim();
       const sourceId = String(req.body?.source_id || req.body?.sourceId || "latest").trim();

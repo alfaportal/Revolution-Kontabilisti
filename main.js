@@ -510,22 +510,19 @@ app.whenReady().then(async () => {
     const mig = migrateLegacyData(logStartup);
     if (mig.migrated) logStartup("migration complete");
 
-    global.__kontabilistiAutoRestoreMessage = "";
-    try {
-      const dataPaths = require("./data-paths");
-      const dbPath = dataPaths.DB_PATH;
-      process.env.KONTABILISTI_DB_PATH = dbPath;
-      const autoBackup = require("./auto-backup");
-      const restore = autoBackup.maybeRestoreOnStartup({ targetDbPath: dbPath });
-      if (restore?.restored && restore.message) {
-        global.__kontabilistiAutoRestoreMessage = restore.message;
-      }
-    } catch (e) {
-      logStartup("[backup] startup restore: " + (e.message || e));
-    }
+    const dataPaths = require("./data-paths");
+    const dbPath = dataPaths.DB_PATH;
+    process.env.KONTABILISTI_DB_PATH = dbPath;
 
-    await initDatabase();
-    logStartup("db ok — " + require("./data-paths").DB_PATH);
+    const autoBackupMod = require("./auto-backup");
+    const deferDbInitForRestore = autoBackupMod.isDbMissingOrCorrupt(dbPath).needRestore;
+
+    if (!deferDbInitForRestore) {
+      await initDatabase();
+      logStartup("db ok — " + require("./data-paths").DB_PATH);
+    } else {
+      logStartup("db mungon/korrupt — restore pas licencës para initDatabase");
+    }
 
     try {
       const settings = getSettings();
@@ -545,20 +542,6 @@ app.whenReady().then(async () => {
       logStartup("data folder sync skip: " + e.message);
     }
 
-    const { runSecurityChecks } = require("./protection/security-startup");
-    const sec = runSecurityChecks({
-      appRoot: __dirname,
-      dataDir: DATA_DIR,
-      getDb,
-      dialog,
-      app,
-    });
-    if (!sec.ok) {
-      logStartup(`security blocked step=${sec.step || "?"}`);
-      app.quit();
-      return;
-    }
-
     logStartup(
       `license boot packaged=${app.isPackaged} enforce=${mustEnforceLicenseAtBoot()} ` +
         `protected=${isProdProtected()} DEV_MODE=${process.env.DEV_MODE || "(unset)"}`,
@@ -574,6 +557,58 @@ app.whenReady().then(async () => {
       app.quit();
       return;
     }
+
+    global.__kontabilistiAutoRestoreMessage = "";
+    try {
+      const restore = autoBackupMod.maybeRestoreOnStartup({
+        targetDbPath: dbPath,
+        licenseActive: mustEnforceLicenseAtBoot(),
+        skipLicenseCheck: !mustEnforceLicenseAtBoot(),
+      });
+      if (restore?.restored && restore.message) {
+        global.__kontabilistiAutoRestoreMessage = restore.message;
+      } else if (restore?.code === "license_required") {
+        try {
+          dialog.showMessageBoxSync({
+            type: "warning",
+            title: "Revolution Kontabilisti",
+            message: "Rikthim backup",
+            detail: restore.error || autoBackupMod.LICENSE_RESTORE_MESSAGE,
+            buttons: ["OK"],
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (e) {
+      logStartup("[backup] startup restore: " + (e.message || e));
+    }
+
+    if (deferDbInitForRestore) {
+      try {
+        resetDatabaseConnection();
+        await initDatabase();
+        logStartup("db ok — " + require("./data-paths").DB_PATH);
+      } catch (e) {
+        logStartup("db init pas restore: " + (e.message || e));
+        throw e;
+      }
+    }
+
+    const { runSecurityChecks } = require("./protection/security-startup");
+    const sec = runSecurityChecks({
+      appRoot: __dirname,
+      dataDir: DATA_DIR,
+      getDb,
+      dialog,
+      app,
+    });
+    if (!sec.ok) {
+      logStartup(`security blocked step=${sec.step || "?"}`);
+      app.quit();
+      return;
+    }
+
     if (mustEnforceLicenseAtBoot()) {
       try {
         await pushLicenseCacheAndNotifyUi(app);
