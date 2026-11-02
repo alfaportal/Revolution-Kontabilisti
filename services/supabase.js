@@ -255,6 +255,9 @@ async function updateLicenseById(id, patch = {}) {
     row.business_name = String(patch.business_name || patch.emri || "").trim() || null;
   }
   if (patch.owner_name != null) row.owner_name = String(patch.owner_name || "").trim() || null;
+  if (patch.email != null || patch.owner_email != null) {
+    row.owner_email = String(patch.owner_email || patch.email || "").trim().toLowerCase() || null;
+  }
   if (patch.phone != null || patch.telefoni != null) {
     row.phone = String(patch.phone || patch.telefoni || "").trim() || null;
   }
@@ -274,7 +277,14 @@ async function updateLicenseById(id, patch = {}) {
     Object.assign(lic, row);
     return { ...lic };
   }
-  const { data, error } = await getClient().from("licenses").update(row).eq("id", id).select("*").single();
+  let { data, error } = await getClient().from("licenses").update(row).eq("id", id).select("*").single();
+  if (error && /owner_email/i.test(String(error.message || error.details || ""))) {
+    delete row.owner_email;
+    if (!Object.keys(row).length) {
+      return { ...lic, license_key: lic.license_key || lic.id };
+    }
+    ({ data, error } = await getClient().from("licenses").update(row).eq("id", id).select("*").single());
+  }
   if (error) throw error;
   return { ...data, license_key: data.license_key || data.id };
 }
@@ -386,6 +396,7 @@ async function getDashboardStats() {
 
 module.exports = {
   useMock,
+  getClient,
   checkByDevice,
   activateByDevice,
   validateForScan,

@@ -3,6 +3,10 @@ const path = require("path");
 const { requireAdmin } = require("../middleware/admin-auth");
 const { requireBridgeAdmin } = require("../middleware/admin-bridge-auth");
 const { registerClientWithLicense } = require("../services/admin-register");
+const {
+  setOwnerPasswordForClient,
+  setOwnerEmailForClient,
+} = require("../services/owner-credentials");
 const db = require("../services/supabase");
 const { planDefaults } = require("../services/supabase-plans");
 
@@ -215,5 +219,36 @@ router.delete("/clients/:id", requireBridgeAdmin, async (req, res) => {
     res.status(400).json({ ok: false, gabim: e.message });
   }
 });
+
+async function handleSetPassword(req, res) {
+  try {
+    const password = req.body?.password || req.body?.new_password;
+    const result = await setOwnerPasswordForClient(req.params.id, password, {
+      email: req.body?.email || req.body?.owner_email,
+      emri: req.body?.emri || req.body?.owner_name,
+    });
+    res.json({ ok: true, ...result, product_line: "kontabilisti" });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message, message: e.message });
+  }
+}
+
+async function handleOwnerEmail(req, res) {
+  try {
+    const email = req.body?.email || req.body?.owner_email;
+    const result = await setOwnerEmailForClient(req.params.id, email, {
+      emri: req.body?.emri || req.body?.owner_name,
+    });
+    res.json({ ok: true, ...result, product_line: "kontabilisti" });
+  } catch (e) {
+    res.status(400).json({ ok: false, gabim: e.message, message: e.message });
+  }
+}
+
+router.post("/dashboard/clients/:id/set-password", requireBridgeAdmin, handleSetPassword);
+router.post("/clients/:id/set-password", requireBridgeAdmin, handleSetPassword);
+router.post("/clients/:id/password", requireBridgeAdmin, handleSetPassword);
+router.patch("/dashboard/clients/:id/owner-email", requireBridgeAdmin, handleOwnerEmail);
+router.patch("/clients/:id/owner-email", requireBridgeAdmin, handleOwnerEmail);
 
 module.exports = router;
