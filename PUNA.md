@@ -1,5 +1,13 @@
 # PUNA.md — revolution-kontabilisti-server
 
+## 2026-11-02 — ENABLE_RLS.sql (vetëm skedar, pa ekzekutim)
+
+| Skedar | Ndryshimi |
+|--------|-----------|
+| `supabase/ENABLE_RLS.sql` | ENABLE RLS + REVOKE anon/authenticated për 3 tabela live (`smjqzefnktatzwydhunr`) |
+
+**Nuk u ekzekutua** SQL. Nuk u bë build/git.
+
 ## 2026-11-02 — Super Admin: set-password / owner-email
 
 Rrugë admin për email/fjalëkalim (model HOTEL). bcrypt 12. `users.passwordi` + `users.email`. Licenca (`id` = klienti) merr `owner_email` nëse kolona ekziston.
