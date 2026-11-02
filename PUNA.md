@@ -12,6 +12,8 @@ Rrugë admin për email/fjalëkalim (model HOTEL). bcrypt 12. `users.passwordi` 
 | `package.json` | `bcryptjs` |
 | `sql/users.sql` | tabelë `users` + RLS (nuk u ekzekutua) |
 
-Provë: `node --check`. Commit/push/deploy te ky hap. Duhet ekzekutuar `sql/users.sql` në Supabase Kontabilisti para se rrugët të shkruajnë `users`.
+Provë: `node --check`. Commit/push. Railway i parë dështoi: `package-lock.json` pa `bcryptjs` (npm ci). U shtua në lockfile dhe u push përsëri.
+
+Duhet ekzekutuar `sql/users.sql` në Supabase Kontabilisti para se rrugët të shkruajnë `users`.
 
 **Nuk preka:** desktop Kontabilisti, URL, secrets.
