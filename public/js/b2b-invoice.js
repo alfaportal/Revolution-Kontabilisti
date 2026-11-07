@@ -1,4 +1,3 @@
-/** Faturat B2B — llogaritje, printim A4, autocomplete klientësh */
 const B2BInvoice = {
   UNITS: ["copë", "kg", "litër", "m²", "orë", "shërbim", "ditë", "muaj"],
   PAY_LABELS: { cash: "Para në dorë", card: "Kartelë", transfer: "Transfer bankar", deferred: "Pagesë e shtyrë" },

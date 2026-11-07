@@ -34,8 +34,13 @@ function validateSalesInvoice(body, { autoNumber }) {
 
   if (!b.payment_method) errors.push("Mënyra e pagesës obligative");
 
-  const isB2B = !!(b.client_nui && String(b.client_nui).trim());
-  if (isB2B && !isValidNui(b.client_nui)) errors.push("NUI i klientit duhet 9 shifra (B2B)");
+  const nuiRaw = String(b.client_nui ?? "").trim();
+  const b2bRequest = Object.prototype.hasOwnProperty.call(b, "client_nui")
+    || !!String(b.client_fiscal || "").trim()
+    || !!String(b.client_address || "").trim();
+  if (b2bRequest && !nuiRaw) errors.push("NUI është i detyrueshëm");
+  const isB2B = !!nuiRaw;
+  if (isB2B && !isValidNui(nuiRaw)) errors.push("NUI i klientit duhet 9 shifra (B2B)");
   if (isB2B && !b.client_name?.trim()) errors.push("Emri i klientit obligativ (B2B)");
   if (isB2B && !b.client_fiscal?.trim()) errors.push("Nr. Fiskal i klientit obligativ (B2B)");
   if (isB2B && !b.client_address?.trim()) errors.push("Adresa e klientit obligative (B2B)");

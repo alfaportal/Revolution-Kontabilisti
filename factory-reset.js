@@ -1,7 +1,6 @@
-/**
- * Factory reset — fshin të dhënat e biznesit, mbaj backup-et.
- * Vetëm me fjalëkalimin e administratorit (Naseri).
- */
+
+
+
 const fs = require("fs");
 const path = require("path");
 const { ensureDirs, DATA_DIR, SCANS_DIR, INVOICES_DIR, LICENSE_PATH } = require("./data-paths");
@@ -11,6 +10,7 @@ const ADMIN_PASSWORD = "REVOLUTION2026!";
 const CONFIRM_WORD = "RIVENDOS";
 
 const RESET_TABLES = [
+  "b2b_payments",
   "sales_invoice_items",
   "sales_invoices",
   "purchase_payments",
@@ -32,6 +32,7 @@ const SEQUENCE_TABLES = [
   "vat_declarations",
   "clients",
   "purchase_payments",
+  "b2b_payments",
   "sales_invoice_items",
   "purchase_invoice_items",
 ];
@@ -78,7 +79,6 @@ function executeFactoryReset(getDb) {
     try {
       db.exec(`DELETE FROM ${table}`);
     } catch {
-      /* tabelë që mund të mungojë */
     }
   }
 
@@ -89,7 +89,6 @@ function executeFactoryReset(getDb) {
     const placeholders = SEQUENCE_TABLES.map(() => "?").join(", ");
     db.prepare(`DELETE FROM sqlite_sequence WHERE name IN (${placeholders})`).run(...SEQUENCE_TABLES);
   } catch {
-    /* ignore */
   }
 
   emptyDirContents(SCANS_DIR);
@@ -99,13 +98,11 @@ function executeFactoryReset(getDb) {
   try {
     if (fs.existsSync(LICENSE_PATH)) fs.unlinkSync(LICENSE_PATH);
   } catch {
-    /* ignore */
   }
 
   try {
     db.exec("DELETE FROM db_meta WHERE key='bound_device_id'");
   } catch {
-    /* ignore */
   }
 
   syncDeadlines(db, db.prepare("SELECT * FROM settings WHERE id=1").get());

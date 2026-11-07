@@ -45,6 +45,22 @@ const RaportetApp = {
     });
   },
 
+  groupExpenses(rows) {
+    const map = new Map();
+    for (const r of rows || []) {
+      const category = r.category || "Tjera";
+      const cur = map.get(category) || { category, total: 0, vat: 0 };
+      cur.total += Number(r.amount) || 0;
+      cur.vat += Number(r.vat_amount) || 0;
+      map.set(category, cur);
+    }
+    return [...map.values()].map((r) => ({
+      category: r.category,
+      total: Math.round(r.total * 100) / 100,
+      vat: Math.round(r.vat * 100) / 100,
+    })).sort((a, b) => a.category.localeCompare(b.category, "sq"));
+  },
+
   tableHtml(headers, bodyRows, footHtml = "") {
     return `<table class="data-table"><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
       <tbody>${bodyRows || `<tr><td colspan="${headers.length}">Pa të dhëna</td></tr>`}</tbody>
@@ -109,13 +125,7 @@ const RaportetApp = {
       vat: r.vat_total,
     }));
 
-    const expenseRows = expenses.rows.map((r) => ({
-      date: r.expense_date,
-      category: r.category,
-      desc: r.description || "—",
-      total: r.amount,
-      vat: r.vat_amount,
-    }));
+    const expenseRows = this.groupExpenses(expenses.rows);
 
     const CE = CsvExport;
     const suffix = CE.monthSuffix(from);
@@ -140,14 +150,14 @@ const RaportetApp = {
     );
 
     const expBody = expenseRows.map((r) =>
-      `<tr><td>${KAPI.fmtDate(r.date)}</td><td>${r.category}</td><td>${r.desc}</td><td>${KAPI.fmt(r.total)} €</td><td>${KAPI.fmt(r.vat)}</td></tr>`
+      `<tr><td>${r.category}</td><td>${KAPI.fmt(r.total)} €</td><td>${KAPI.fmt(r.vat)}</td></tr>`
     ).join("");
-    const expVatTotal = expenseRows.reduce((a, r) => a + (r.vat || 0), 0);
+    const expSum = Math.round(expenseRows.reduce((a, r) => a + Number(r.total || 0), 0) * 100) / 100;
     const expTable = this.tableHtml(
-      ["Data", "Kategoria", "Përshkrimi", "Shuma", "TVSH zbritshme"],
-      expBody,
-      `<tr><td colspan="3"><b>TOTALI</b></td><td>${KAPI.fmt(t.expenseTotal)} €</td><td>${KAPI.fmt(expVatTotal)}</td></tr>`
+      ["Kategoria", "Shuma", "TVSH"],
+      expBody
     );
+    const expTotalLine = `<p><b>Gjithsej shpenzime: ${KAPI.fmt(expSum)} €</b></p>`;
 
     this._exports.shitje = {
       title: "Libri i Shitjeve",
@@ -166,9 +176,9 @@ const RaportetApp = {
     this._exports.shpenzime = {
       title: "Libri i Shpenzimeve",
       filename: `libri_shpenzimeve_${suffix}.csv`,
-      headers: ["Data", "Kategoria", "Përshkrimi", "Shuma", "TVSH zbritshme"],
-      rows: expenseRows.map((r) => [CE.fmtDate(r.date), r.category, r.desc, CE.fmtNum(r.total), CE.fmtNum(r.vat)]),
-      html: expTable,
+      headers: ["Kategoria", "Shuma", "TVSH"],
+      rows: expenseRows.map((r) => [r.category, CE.fmtNum(r.total), CE.fmtNum(r.vat)]),
+      html: expTable + expTotalLine,
     };
 
     document.getElementById("rap-content").innerHTML = `
@@ -200,6 +210,7 @@ const RaportetApp = {
           ${this.reportToolbar("shpenzime")}
         </div>
         ${expTable}
+        ${expTotalLine}
       </div>`;
 
     this.bindReportActions(document.getElementById("rap-content"));

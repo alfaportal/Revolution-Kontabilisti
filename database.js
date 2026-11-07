@@ -321,6 +321,14 @@ function ensureColumnMigrations(d) {
     note TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now'))
   )`);
+  d.exec(`CREATE TABLE IF NOT EXISTS b2b_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    date TEXT NOT NULL,
+    note TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
 }
 
 function getDbVersion(d) {

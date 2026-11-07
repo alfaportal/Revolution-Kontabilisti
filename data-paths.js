@@ -2,7 +2,6 @@ const path = require("path");
 const os = require("os");
 const fs = require("fs");
 
-/** Hub në AppData — pa "revolution"; çdo biznes ka nën-folderin e vet */
 const APP_HUB_NAME = "Kontabilisti";
 const LEGACY_APP_NAME = "revolution-kontabilisti";
 const SETUP_FOLDER = "_setup";
@@ -25,7 +24,7 @@ function readProfile() {
     const raw = fs.readFileSync(profilePath(), "utf8");
     const data = JSON.parse(raw);
     if (data?.folder && typeof data.folder === "string") return data;
-  } catch { /* ignore */ }
+  } catch {  }
   return null;
 }
 
@@ -49,7 +48,6 @@ function slugifyPart(value) {
     .slice(0, 55);
 }
 
-/** Emri i folderit sipas emrit të biznesit + komuna */
 function businessFolderName(settings) {
   const trade = settings?.business_trade_name?.trim();
   const legal = settings?.business_legal_name?.trim();
@@ -79,7 +77,6 @@ function legacyDataDir() {
   return path.join(appDataRoaming(), LEGACY_APP_NAME);
 }
 
-/** Burim i saktë: %APPDATA%\\Kontabilisti\\{Emri-Biznesit-Komuna}\\ */
 function resolveDataDir() {
   if (process.env.KONTABILISTI_DATA_DIR) return process.env.KONTABILISTI_DATA_DIR;
 
@@ -112,10 +109,6 @@ function copyTreeMerge(src, dest) {
   if (!fs.existsSync(dest)) fs.copyFileSync(src, dest);
 }
 
-/**
- * Pas regjistrimit të biznesit, zhvendos të dhënat te folderi i emrit.
- * @returns {{ moved: boolean, folder?: string, from?: string, to?: string }}
- */
 function syncBusinessDataFolder(settings) {
   const legal = settings?.business_legal_name?.trim();
   const muni = settings?.municipality?.trim();
@@ -157,7 +150,6 @@ function syncBusinessDataFolder(settings) {
   return { moved, folder, from: moved ? currentDir : undefined, to: targetDir };
 }
 
-/** Për UI — %APPDATA%\\Kontabilisti\\... pa "revolution" */
 function formatDisplayPath(absPath) {
   if (!absPath) return "";
   let out = String(absPath).replace(/\\/g, "\\");
@@ -214,11 +206,9 @@ function ensureDirs() {
   try {
     fs.mkdirSync(p.BACKUP_DIR_EXTERNAL, { recursive: true });
   } catch {
-    /* ignore */
   }
 }
 
-/** Thirret në fillim të main.js para require të databazës */
 function initElectronDataDir() {
   if (process.env.KONTABILISTI_DATA_DIR) return getPaths().DATA_DIR;
   try {

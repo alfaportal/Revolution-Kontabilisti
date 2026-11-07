@@ -19,10 +19,9 @@ function bindDeviceId(db, deviceId) {
   db.prepare("INSERT OR REPLACE INTO db_meta (key, value) VALUES ('bound_device_id', ?)").run(deviceId);
 }
 
-/**
- * Kontrollon / vendos lidhjen hardware.
- * @returns {{ ok: boolean, error?: string, bound?: boolean, deviceId?: string }}
- */
+
+
+
 function ensureDeviceLock(db) {
   if (!isProtectionEnabled()) {
     return { ok: true, skipped: true, deviceId: getDeviceId() };

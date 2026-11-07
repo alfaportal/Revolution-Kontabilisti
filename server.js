@@ -87,7 +87,7 @@ function saveLicenseLocal(info) {
       business_name: patch.license_business_name,
       saved_at: patch.license_last_check_at,
     }, null, 2));
-  } catch { /* ignore */ }
+  } catch {  }
   return patch;
 }
 
@@ -158,7 +158,6 @@ async function refreshLicenseIfStale(force = false) {
         };
       }
     } catch {
-      /* ignore */
     }
     updateSettings({
       license_device_id: deviceId,
@@ -432,7 +431,6 @@ function buildRoutes() {
   router.post("/ai/scan-client", (req, res) => handleAiScan(req, res, "client"));
   router.post("/ai/scan-business-cert", (req, res) => handleAiScan(req, res, "business_cert"));
 
-  /* ── Z-Raporte ── */
   router.get("/z-reports", (req, res) => {
     const { from, to } = req.query;
     let sql = "SELECT * FROM z_reports WHERE status='active'";
@@ -510,7 +508,6 @@ function buildRoutes() {
     json(res, { ok: true });
   });
 
-  /* ── Klientë ── */
   router.get("/clients", (req, res) => {
     const { nui, q } = req.query;
     if (nui) {
@@ -571,7 +568,6 @@ function buildRoutes() {
     json(res, { ok: true });
   });
 
-  /* ── Faturat B2B ── */
   router.get("/sales-invoices", (req, res) => {
     const { from, to, status, search, payment_status } = req.query;
     let sql = "SELECT * FROM sales_invoices WHERE status != 'deleted'";
@@ -585,7 +581,13 @@ function buildRoutes() {
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     sql += " ORDER BY invoice_date DESC, id DESC";
-    json(res, { ok: true, rows: getDb().prepare(sql).all(...params) });
+    const rows = getDb().prepare(sql).all(...params).map((row) => ({
+      ...enrichB2BPayment(row),
+      payments: getDb().prepare(
+        "SELECT id, amount, date, note FROM b2b_payments WHERE invoice_id=? ORDER BY date, id"
+      ).all(row.id),
+    }));
+    json(res, { ok: true, rows });
   });
 
   router.get("/sales-invoices/:id", (req, res) => {
@@ -736,7 +738,70 @@ function buildRoutes() {
     json(res, { ok: true });
   });
 
-  /* ── Blerjet ── */
+  router.post("/b2b-payments", (req, res) => {
+    const b = req.body || {};
+    const invoiceId = Number(b.invoice_id);
+    if (!invoiceId) return err(res, "Fatura B2B mungon");
+    const amount = round2(Number(b.amount));
+    if (!(amount > 0)) return err(res, "Shuma duhet > 0");
+    const inv = getDb().prepare(
+      "SELECT * FROM sales_invoices WHERE id=? AND status='finalized'"
+    ).get(invoiceId);
+    if (!inv) return err(res, "Fatura nuk u gjet", 404);
+    const shown = enrichB2BPayment(inv);
+    if (amount > shown.debt + 0.01) return err(res, `Shuma tejkalon borxhin (max ${shown.debt} €)`);
+    const info = getDb().prepare(`
+      INSERT INTO b2b_payments (invoice_id, amount, date, note)
+      VALUES (@invoice_id, @amount, @date, @note)
+    `).run({
+      invoice_id: invoiceId,
+      amount,
+      date: b.date || new Date().toISOString().slice(0, 10),
+      note: b.note || "",
+    });
+    const fresh = enrichB2BPayment(getDb().prepare("SELECT * FROM sales_invoices WHERE id=?").get(invoiceId));
+    getDb().prepare(
+      "UPDATE sales_invoices SET amount_paid=?, payment_status=?, updated_at=datetime('now') WHERE id=?"
+    ).run(fresh.amount_paid, fresh.payment_status, invoiceId);
+    json(res, { ok: true, id: info.lastInsertRowid, invoice: fresh });
+  });
+
+  router.delete("/b2b-payments/:id", (req, res) => {
+    const pay = getDb().prepare("SELECT * FROM b2b_payments WHERE id=?").get(req.params.id);
+    if (!pay) return err(res, "Pagesa nuk u gjet", 404);
+    getDb().prepare("DELETE FROM b2b_payments WHERE id=?").run(pay.id);
+    const inv = getDb().prepare("SELECT * FROM sales_invoices WHERE id=?").get(pay.invoice_id);
+    if (!inv) return json(res, { ok: true });
+    const paid = b2bPaidTotal(inv.id);
+    const total = round2(Number(inv.grand_total) || 0);
+    const debt = round2(Math.max(0, total - paid));
+    let payment_status = "unpaid";
+    if (total > 0 && debt <= 0.01) payment_status = "paid";
+    else if (paid > 0) payment_status = "partial";
+    getDb().prepare(
+      "UPDATE sales_invoices SET amount_paid=?, payment_status=?, updated_at=datetime('now') WHERE id=?"
+    ).run(paid, payment_status, inv.id);
+    const fresh = enrichB2BPayment(getDb().prepare("SELECT * FROM sales_invoices WHERE id=?").get(inv.id));
+    json(res, { ok: true, invoice: fresh });
+  });
+
+  function b2bPaidTotal(invoiceId) {
+    return round2(Number(getDb().prepare(
+      "SELECT COALESCE(SUM(amount),0) as t FROM b2b_payments WHERE invoice_id=?"
+    ).get(invoiceId)?.t || 0));
+  }
+
+  function enrichB2BPayment(row) {
+    const fromTable = b2bPaidTotal(row.id);
+    const total = round2(Number(row.grand_total) || 0);
+    const paid = fromTable > 0 ? fromTable : round2(Number(row.amount_paid) || 0);
+    const debt = round2(Math.max(0, total - paid));
+    let payment_status = "unpaid";
+    if (total > 0 && debt <= 0.01) payment_status = "paid";
+    else if (paid > 0) payment_status = "partial";
+    return { ...row, amount_paid: paid, debt, payment_status };
+  }
+
   function purchasePaidTotal(invoiceId) {
     return round2(Number(getDb().prepare(
       "SELECT COALESCE(SUM(amount),0) as t FROM purchase_payments WHERE purchase_invoice_id=?"
@@ -894,7 +959,6 @@ function buildRoutes() {
     json(res, { ok: true, rows: getDb().prepare(sql).all(...params) });
   });
 
-  /* ── Shpenzimet ── */
   router.get("/expenses", (req, res) => {
     const { from, to } = req.query;
     let sql = "SELECT * FROM expenses WHERE status='active'";
@@ -954,7 +1018,6 @@ function buildRoutes() {
     json(res, { ok: true });
   });
 
-  /* ── Dashboard & Raporte ── */
   router.get("/dashboard", (req, res) => {
     const year = new Date().getFullYear();
     const start = `${year}-01-01`;
@@ -963,9 +1026,13 @@ function buildRoutes() {
     const totals = computePeriodTotals(getDb(), start, end, pt);
 
     const daily = getDb().prepare(`
-      SELECT report_date as d, SUM(grand_total) as total FROM z_reports
-      WHERE status='active' AND report_date >= date('now','-30 days')
-      GROUP BY report_date ORDER BY report_date
+      SELECT d, SUM(total) as total FROM (
+        SELECT report_date as d, grand_total as total FROM z_reports
+        WHERE status='active' AND report_date >= date('now','-30 days')
+        UNION ALL
+        SELECT invoice_date as d, grand_total as total FROM sales_invoices
+        WHERE status='finalized' AND invoice_date >= date('now','-30 days')
+      ) GROUP BY d ORDER BY d
     `).all();
 
     const topClients = getDb().prepare(`
@@ -1021,7 +1088,7 @@ function buildRoutes() {
 
     if (!type || type === "shitje_z") {
       const { w, p } = dateClause("report_date", " WHERE status='active' ", []);
-      getDb().prepare(`SELECT report_date as date, 'Z-Raport' as type, report_number as number, device_name as party, 
+      getDb().prepare(`SELECT report_date as date, 'Z-Raport' as type, report_number as number, report_number as party,
         (sales_18_base+sales_8_base+sales_0_total) as net, (sales_18_vat+sales_8_vat) as vat, grand_total as total
         FROM z_reports ${w} ORDER BY report_date DESC`).all(...p).forEach((r) => rows.push(r));
     }
@@ -1029,15 +1096,27 @@ function buildRoutes() {
       const { w, p } = dateClause("invoice_date", " WHERE status='finalized' ", []);
       getDb().prepare(`SELECT invoice_date as date, 'Faturë B2B' as type, invoice_number as number, client_name as party,
         subtotal as net, vat_total as vat, grand_total as total FROM sales_invoices ${w} ORDER BY invoice_date DESC`).all(...p).forEach((r) => rows.push(r));
+      const b2bPay = dateClause("bp.date", " WHERE si.status='finalized' ", []);
+      getDb().prepare(`SELECT bp.date as date, 'Pagesë B2B' as type, si.invoice_number as number, si.client_name as party,
+        bp.amount as net, 0 as vat, bp.amount as total
+        FROM b2b_payments bp
+        JOIN sales_invoices si ON si.id = bp.invoice_id
+        ${b2bPay.w} ORDER BY bp.date DESC`).all(...b2bPay.p).forEach((r) => rows.push(r));
     }
     if (!type || type === "blerje") {
       const { w, p } = dateClause("invoice_date", " WHERE status='active' ", []);
       getDb().prepare(`SELECT invoice_date as date, 'Blerje' as type, invoice_number as number, supplier_name as party,
         subtotal as net, vat_total as vat, grand_total as total FROM purchase_invoices ${w} ORDER BY invoice_date DESC`).all(...p).forEach((r) => rows.push(r));
+      const pay = dateClause("pp.payment_date", " WHERE pi.status='active' ", []);
+      getDb().prepare(`SELECT pp.payment_date as date, 'Pagesë blerje' as type, pi.invoice_number as number, pi.supplier_name as party,
+        pp.amount as net, 0 as vat, pp.amount as total
+        FROM purchase_payments pp
+        JOIN purchase_invoices pi ON pi.id = pp.purchase_invoice_id
+        ${pay.w} ORDER BY pp.payment_date DESC`).all(...pay.p).forEach((r) => rows.push(r));
     }
     if (!type || type === "shpenzim") {
       const { w, p } = dateClause("expense_date", " WHERE status='active' ", []);
-      getDb().prepare(`SELECT expense_date as date, 'Shpenzim' as type, receipt_number as number, COALESCE(supplier_name, category) as party,
+      getDb().prepare(`SELECT expense_date as date, 'Shpenzim' as type, receipt_number as number, category as party,
         (amount-vat_amount) as net, vat_amount as vat, amount as total FROM expenses ${w} ORDER BY expense_date DESC`).all(...p).forEach((r) => rows.push(r));
     }
 
@@ -1192,7 +1271,6 @@ function buildRoutes() {
     json(res, { ok: true, number: nextExpenseNumber(req.query.date) });
   });
 
-  /* ── Backup & Të dhënat ── */
   router.get("/data/info", (_req, res) => {
     try {
       const db = getDb();
@@ -1264,10 +1342,26 @@ function buildRoutes() {
     }
   });
 
+  function autoBackupPersistOpts(extra = {}) {
+    return {
+      getPersistedBackupDir: () => {
+        try {
+          return String(getSettings()?.auto_backup_dir || "").trim();
+        } catch {
+          return "";
+        }
+      },
+      setPersistedBackupDir: (dir) => {
+        updateSettings({ auto_backup_dir: String(dir || "").trim() });
+      },
+      ...extra,
+    };
+  }
+
   router.get("/auto-backup/status", (_req, res) => {
     try {
       const autoBackup = require("./auto-backup");
-      json(res, { ok: true, ...autoBackup.getBackupStatus() });
+      json(res, { ok: true, ...autoBackup.getBackupStatus(autoBackupPersistOpts()) });
     } catch (e) {
       err(res, e.message, 500);
     }
@@ -1276,7 +1370,7 @@ function buildRoutes() {
   router.get("/auto-backup/catalog", (_req, res) => {
     try {
       const autoBackup = require("./auto-backup");
-      json(res, autoBackup.listRestoreCatalog());
+      json(res, autoBackup.listRestoreCatalog(autoBackupPersistOpts()));
     } catch (e) {
       err(res, e.message, 500);
     }
@@ -1285,24 +1379,25 @@ function buildRoutes() {
   router.post("/auto-backup/run-now", (_req, res) => {
     try {
       const autoBackup = require("./auto-backup");
-      const result = autoBackup.runBackupCycle({
-        dbPath: DB_PATH,
-        flushSave: () => {
-          try {
-            getDb().pragma("wal_checkpoint(FULL)");
-          } catch {
-            /* ignore */
-          }
-        },
-        getSettingsSnapshot: () => {
-          const s = getSettings();
-          return {
-            business_legal_name: s?.business_legal_name || "",
-            business_trade_name: s?.business_trade_name || "",
-            municipality: s?.municipality || "",
-          };
-        },
-      });
+      const result = autoBackup.runBackupCycle(
+        autoBackupPersistOpts({
+          dbPath: DB_PATH,
+          flushSave: () => {
+            try {
+              getDb().pragma("wal_checkpoint(FULL)");
+            } catch {
+            }
+          },
+          getSettingsSnapshot: () => {
+            const s = getSettings();
+            return {
+              business_legal_name: s?.business_legal_name || "",
+              business_trade_name: s?.business_trade_name || "",
+              municipality: s?.municipality || "",
+            };
+          },
+        }),
+      );
       json(res, { ok: !!result.ok, ...result });
     } catch (e) {
       err(res, e.message, 500);
@@ -1323,11 +1418,13 @@ function buildRoutes() {
       const autoBackup = require("./auto-backup");
       const sourceType = String(req.body?.source_type || req.body?.sourceType || "latest").trim();
       const sourceId = String(req.body?.source_id || req.body?.sourceId || "latest").trim();
-      const result = autoBackup.restoreFromBackup({
-        targetDbPath: DB_PATH,
-        source_type: sourceType,
-        source_id: sourceId,
-      });
+      const result = autoBackup.restoreFromBackup(
+        autoBackupPersistOpts({
+          targetDbPath: DB_PATH,
+          source_type: sourceType,
+          source_id: sourceId,
+        }),
+      );
       if (!result.restored) {
         return err(res, result.error || "Restore dështoi.", 400);
       }
@@ -1366,7 +1463,6 @@ async function createApp() {
       if (fs.existsSync(path.join(unpacked, "public"))) baseDir = unpacked;
     }
   } catch {
-    /* standalone node test server */
   }
   const publicDir = path.join(baseDir, "public");
   app = express();
@@ -1414,7 +1510,6 @@ async function syncLicenseCacheFromCloud(app) {
       return { ok: true, active: true };
     }
   } catch {
-    /* offline — përdor cache cloud nga main process */
   }
   try {
     const cloud = require("./protection/cloud-license");
@@ -1437,7 +1532,6 @@ async function syncLicenseCacheFromCloud(app) {
       return { ok: true, active: true, offline: true };
     }
   } catch {
-    /* ignore */
   }
   return { ok: false, active: false };
 }

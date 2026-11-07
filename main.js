@@ -4,7 +4,6 @@ const fs = require("fs");
 const http = require("http");
 const net = require("net");
 
-/** DEV = burim i hapur; PROD = build i paketuar me mbrojtje */
 if (app.isPackaged) {
   process.env.KONTABILISTI_PROTECTED = "1";
 } else if (process.env.DEV_MODE !== "false") {
@@ -13,7 +12,6 @@ if (app.isPackaged) {
 
 const isProdProtected = () => process.env.KONTABILISTI_PROTECTED === "1" && process.env.DEV_MODE !== "true";
 
-/** Instaluesi (.exe): licenca detyruese — jo varësisht DEV_MODE në mjedis. */
 function mustEnforceLicenseAtBoot() {
   return app.isPackaged === true;
 }
@@ -48,7 +46,7 @@ function broadcastToAllWindows(channel, payload) {
     for (const win of BrowserWindow.getAllWindows()) {
       if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
     }
-  } catch { /* ignore */ }
+  } catch {  }
 }
 
 async function pushLicenseCacheAndNotifyUi(app, beat = {}) {
@@ -110,7 +108,7 @@ function logStartup(msg) {
     ensureDirs();
     const line = `[${new Date().toISOString()}] ${msg}\n`;
     fs.appendFileSync(path.join(DATA_DIR, "startup.log"), line);
-  } catch { /* ignore */ }
+  } catch {  }
 }
 
 function resolveIcon() {
@@ -179,7 +177,7 @@ async function clearRendererLicenseStorage() {
       try { localStorage.clear(); sessionStorage.clear(); } catch (_e) {}
       return true;
     })()`, true);
-  } catch { /* ignore */ }
+  } catch {  }
 }
 
 async function relaunchMainAfterLicense() {
@@ -204,7 +202,7 @@ async function forceRevokeAndReactivate(detail, beat = {}) {
   await clearRendererLicenseStorage().catch(() => {});
   try {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
-  } catch { /* ignore */ }
+  } catch {  }
   mainWindow = null;
   await stopServer();
 
@@ -243,7 +241,6 @@ async function forceRevokeAndReactivate(detail, beat = {}) {
     }
     return;
   }
-  /* Përdoruesi mbylli dialogun — quit pa ErrorBox */
   app.quit();
 }
 
@@ -259,7 +256,6 @@ function onLicenseWatchdogBeat(beat) {
     try {
       cloud.wipeAllActivationData(app);
     } catch {
-      /* ignore */
     }
     app.quit();
     return;
@@ -577,7 +573,6 @@ app.whenReady().then(async () => {
             buttons: ["OK"],
           });
         } catch {
-          /* ignore */
         }
       }
     } catch (e) {
@@ -657,7 +652,6 @@ app.whenReady().then(async () => {
           buttons: ["OK"],
         });
       } catch {
-        /* ignore */
       }
       global.__kontabilistiAutoRestoreMessage = "";
     }
@@ -684,7 +678,6 @@ app.whenReady().then(async () => {
             const db = getDb();
             db.pragma("wal_checkpoint(FULL)");
           } catch {
-            /* ignore */
           }
         },
         getSettingsSnapshot: () => {

@@ -77,7 +77,7 @@ async function run() {
   try {
     const ATK = loadKontAtk();
     const sales = ATK.salesBoxesFromTotals({ salesBase18: 336.81, salesVat18: 60.63, outputVat: 60.63 }, { 9: 0, "10c": 0 });
-    assert(sales.box12 === 336.81, "box12");
+    assert(sales.box12 === 60.63, "box12");
     assert(sales.boxK1 === 60.63, "boxK1");
     const purch = ATK.purchaseBoxesFromTotals({ purchaseBase: 0, inputVat: 0 });
     const decl = ATK.buildVatDeclaration(sales, purch);

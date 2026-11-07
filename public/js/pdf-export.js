@@ -1,4 +1,3 @@
-/** PDF / print profesional — header ATK nga Settings */
 const PdfExport = {
   header(settings, title, periodFrom, periodTo) {
     const s = settings || {};

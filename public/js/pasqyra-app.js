@@ -10,10 +10,11 @@ const PasqyraApp = {
     ]);
     const t = data.totals;
     const missing = data.missingZDays || [];
-    const missingBanner = missing.length >= 3
-      ? `<div class="alert-banner alert-warn">
-          ⚠️ Nuk keni regjistruar Z-Raport për ${missing.length} ditë (${this.formatMissingDays(missing)}).
-          Nëse keni pasur shitje ato ditë, regjistroni Z-Raportet te Shitjet → Z-Raportet Ditore.
+    const zBannerHidden = sessionStorage.getItem("pasqyra-z-missing-dismissed") === "1";
+    const missingBanner = missing.length >= 3 && !zBannerHidden
+      ? `<div class="alert-banner alert-warn" id="missing-z-banner">
+          <span>⚠️ Nuk keni regjistruar Z-Raport për ${missing.length} ditë (${this.formatMissingDays(missing)}). Nëse keni pasur shitje ato ditë, regjistroni Z-Raportet te Shitjet → Z-Raportet Ditore.</span>
+          <button type="button" class="alert-banner-close" id="missing-z-close" aria-label="Mbyll">×</button>
         </div>`
       : "";
 
@@ -47,6 +48,10 @@ const PasqyraApp = {
       </div>`;
 
     document.getElementById("refresh-dash").onclick = () => this.init();
+    document.getElementById("missing-z-close")?.addEventListener("click", () => {
+      sessionStorage.setItem("pasqyra-z-missing-dismissed", "1");
+      document.getElementById("missing-z-banner")?.remove();
+    });
 
     if (window.DeadlineAlertsUI) {
       DeadlineAlertsUI.renderPasqyraBanner(data.alerts, data.settings);

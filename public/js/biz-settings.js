@@ -1,4 +1,3 @@
-/** Të dhënat e biznesit — i përbashkët për wizard dhe Cilësimet */
 const BizSettings = (() => {
   const MUNICIPALITIES = [
     "Prishtinë", "Mitrovicë", "Pejë", "Prizren", "Ferizaj", "Gjilan", "Gjakovë",

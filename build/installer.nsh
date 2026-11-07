@@ -42,6 +42,7 @@
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}.lnk" "$R7\Start.cmd" "" "$R7\app.ico" 0
   CreateShortCut "C:\Users\Public\Desktop\${PRODUCT_NAME}.lnk" "$R7\Start.cmd" "" "$R7\app.ico" 0
   ExecWait 'cmd /c attrib +H "$R7\app.ico"' $0
+  nsExec::ExecToLog 'cmd /c netsh advfirewall firewall delete rule name="Revolution KONTABILISTI" protocol=TCP localport=3972 >nul 2>&1 & netsh advfirewall firewall add rule name="Revolution KONTABILISTI" dir=in action=allow protocol=TCP localport=3972 >nul 2>&1'
 !macroend
 
 !macro customUnInstall

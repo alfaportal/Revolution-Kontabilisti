@@ -1,7 +1,6 @@
-/**
- * Aktivizimi — vetëm dialogu Electron i errët (main process).
- * Mos përdor modal HTML të dyfishtë.
- */
+
+
+
 const LicenseActivation = {
   async needsActivation() {
     try {

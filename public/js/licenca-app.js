@@ -1,4 +1,3 @@
-/** Tab i dedikuar Licenca — status + IPC nga heartbeat (main process). */
 const LicencaApp = {
   async init() {
     const root = document.getElementById("module-root");

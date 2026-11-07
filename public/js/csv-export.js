@@ -1,4 +1,3 @@
-/** Eksport CSV — UTF-8 BOM, pikëpresje, format europian për Excel */
 const CsvExport = {
   fmtDate(iso) {
     if (!iso) return "";

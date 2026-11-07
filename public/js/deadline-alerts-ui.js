@@ -1,4 +1,3 @@
-/** Alarmet / njoftimet për afatet ATK — badge + dropdown */
 const DeadlineAlertsUI = {
   LEVEL_CLASS: {
     reminder: "dl-reminder",
@@ -382,7 +381,6 @@ const DeadlineAlertsUI = {
     });
   },
 
-  /** Modal startup i hequr — njoftimet vetëm në dropdown */
   renderPopup() {},
 
   FINE_INFO_HTML: `<small>Sipas ligjit të ATK-së: vonesë deri 30 ditë €50–€250; mbi 30 ditë €250–€500 + kamatë; moshkontribut i përsëritur — masa shtesë.</small>`,

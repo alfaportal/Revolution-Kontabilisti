@@ -112,9 +112,7 @@ const KontabilistiApp = {
     const salesBoxes = KONT_ATK.salesBoxesFromTotals(t, b);
     const purchBoxes = KONT_ATK.purchaseBoxesFromTotals(t);
     const declaration = KONT_ATK.buildVatDeclarationFromBoxes(b, t);
-    const shpenzimeOp = this.money(t.purchaseGross * 0.05);
-    const fitim = this.money(t.salesGross - t.purchaseGross - t.expenseTotal - shpenzimeOp + t.expenseTotal);
-    return { t, b, salesBoxes, purchBoxes, declaration, shpenzimeOp, fitim: t.netProfit };
+    return { t, b, salesBoxes, purchBoxes, declaration, fitim: t.netProfit };
   },
 
   statCard(label, value, border) {
@@ -169,16 +167,30 @@ const KontabilistiApp = {
     this.state.dateTo = init.to;
     this.state.applied = { ...init };
     this.state.sec = null;
-    if (!this.state.rentRows.length) {
-      const s = (await this.fetchSummary(init.from, init.to)).settings || {};
-      this.state.rentRows = [{ id: "rent-1", nui: s.nui || "", name: "Qera", rentGross: 0, interest: 0 }];
-    }
     await this.reload();
+    await this.loadQiraRows();
     this.render();
   },
 
   async reload() {
     this.state.data = await this.fetchSummary(this.state.applied.from, this.state.applied.to);
+  },
+
+  async loadQiraRows() {
+    const from = this.state.applied?.from;
+    const to = this.state.applied?.to;
+    if (!from || !to) return;
+    const ex = await KAPI.api(`/expenses?from=${from}&to=${to}`);
+    const s = this.state.data?.settings || {};
+    const manual = (this.state.rentRows || []).filter((r) => String(r.id).startsWith("rent-"));
+    const fromExp = (ex.rows || []).filter((r) => r.category === "Qira").map((r) => ({
+      id: `exp-${r.id}`,
+      nui: s.nui || "",
+      name: r.description || "Qira",
+      rentGross: Number(r.amount) || 0,
+      interest: 0,
+    }));
+    this.state.rentRows = fromExp.concat(manual);
   },
 
   async refresh() {
@@ -355,17 +367,17 @@ const KontabilistiApp = {
   sectionBilanc() {
     const { t } = this.atkContext();
     this._exportPayload["bilanc-csv"] = () => this.downloadCSV("bilanc.csv", ["Zëri", "Vlera"], [
-      ["Shitjet", CsvExport.fmtNum(t.salesGross)], ["Blerjet", CsvExport.fmtNum(t.purchaseGross)],
-      ["Shpenzimet", CsvExport.fmtNum(t.expenseTotal)], ["Fitimi", CsvExport.fmtNum(t.netProfit)],
+      ["Shitjet", CsvExport.fmtNum(t.salesBase)], ["Blerjet", CsvExport.fmtNum(t.purchaseInvoiceBase)],
+      ["Shpenzimet", CsvExport.fmtNum(t.expenseBase)], ["Fitimi", CsvExport.fmtNum(t.netProfit)],
     ]);
     return this.secShell(
       "Bilanci i brendshëm",
-      "SHITJET − BLERJET − SHPENZIMET = FITIMI",
+      "Pa TVSH: shitjet − blerjet − shpenzimet = fitimi",
       `${this.exportToolbar({ pdf: true })}<button type="button" class="btn btn-csv btn-sm" data-action="csv" data-csv-id="bilanc-csv">📥 Eksporto CSV</button>`,
       `<div class="kont-kpi-panel"><div class="dashboard-kpi-row sec-pasqyra-kpis st-pasqyra-kpis">
-        ${this.statCard("SHITJET", this.fmtEuro(t.salesGross), "green")}
-        ${this.statCard("BLERJET", this.fmtEuro(t.purchaseGross), "orange")}
-        ${this.statCard("SHPENZIMET", this.fmtEuro(t.expenseTotal), "red")}
+        ${this.statCard("SHITJET", this.fmtEuro(t.salesBase), "green")}
+        ${this.statCard("BLERJET", this.fmtEuro(t.purchaseInvoiceBase), "orange")}
+        ${this.statCard("SHPENZIMET", this.fmtEuro(t.expenseBase), "red")}
         ${this.statCard("FITIMI", this.fmtEuro(t.netProfit), "blue")}
       </div></div>`
     );
@@ -486,11 +498,13 @@ const KontabilistiApp = {
     const rows = [];
     (pur.rows || []).forEach((p) => rows.push({
       date: p.invoice_date, nr: p.invoice_number || "—", seller: p.supplier_name || "—",
-      v43: p.subtotal || 0, k1: p.vat_18 || 0, v67: p.vat_total || 0,
+      base: p.subtotal || 0, v43: p.vat_18 || 0, k1: p.vat_18 || 0, v45: p.vat_8 || 0, k2: p.vat_8 || 0, v67: p.vat_total || 0,
     }));
     (exp.rows || []).filter((e) => e.vat_amount > 0).forEach((e) => {
       const base = (e.amount || 0) - (e.vat_amount || 0);
-      rows.push({ date: e.expense_date, nr: "—", seller: e.category || "Shpenzim", v43: base, k1: e.vat_amount, v67: e.vat_amount });
+      const vat18 = Number(e.vat_rate) === 18 ? (e.vat_amount || 0) : 0;
+      const vat8 = Number(e.vat_rate) === 8 ? (e.vat_amount || 0) : 0;
+      rows.push({ date: e.expense_date, nr: "—", seller: e.category || "Shpenzim", base, v43: vat18, k1: vat18, v45: vat8, k2: vat8, v67: e.vat_amount });
     });
     const { purchBoxes } = this.atkContext();
     this._exportPayload["blerje-csv"] = () => {
@@ -498,9 +512,10 @@ const KontabilistiApp = {
       const headers = ["Data", "Nr. Faturës", "Furnizuesi", "Baza pa TVSH", "TVSH 18%", "TVSH 8%", "Totali TVSH"];
       const csvRows = rows.map((r) => [
         CE.fmtDate(r.date), r.nr, r.seller,
-        CE.fmtNum(r.v43), CE.fmtNum(r.k1), CE.fmtNum(0), CE.fmtNum(r.v67),
+        CE.fmtNum(r.base), CE.fmtNum(r.k1), CE.fmtNum(r.v45), CE.fmtNum(r.v67),
       ]);
-      csvRows.push(["TOTALI", "", "", CE.fmtNum(purchBoxes.box43), CE.fmtNum(purchBoxes.boxK1), CE.fmtNum(0), CE.fmtNum(purchBoxes.box67)]);
+      const vat8sum = rows.reduce((s, r) => s + (Number(r.v45) || 0), 0);
+      csvRows.push(["TOTALI", "", "", CE.fmtNum(purchBoxes.box43), CE.fmtNum(purchBoxes.boxK1), CE.fmtNum(vat8sum), CE.fmtNum(purchBoxes.box67)]);
       CE.save(`libri-blerjeve_${CE.quarterSuffix(this.state.applied.from)}.csv`, headers, csvRows);
     };
 
@@ -512,7 +527,7 @@ const KontabilistiApp = {
         <th>Nr</th><th>Data</th><th>Nr. faturës</th><th>Shitësi</th><th>[43] 18%</th><th>[K1]</th><th>[45] 8%</th><th>[K2]</th><th>[67]</th>
       </tr></thead><tbody>${rows.length ? rows.map((r, i) => `<tr>
         <td>${i + 1}</td><td>${KAPI.fmtDate(r.date)}</td><td>${r.nr}</td><td>${r.seller}</td>
-        <td>${this.fmtEuro(r.v43)}</td><td>${this.fmtEuro(r.k1)}</td><td>${this.fmtEuro(0)}</td><td>${this.fmtEuro(0)}</td><td>${this.fmtEuro(r.v67)}</td>
+        <td>${this.fmtEuro(r.v43)}</td><td>${this.fmtEuro(r.k1)}</td><td>${this.fmtEuro(r.v45)}</td><td>${this.fmtEuro(r.k2)}</td><td>${this.fmtEuro(r.v67)}</td>
       </tr>`).join("") : '<tr><td colspan="9" class="purchases-empty">Nuk ka blerje / shpenzime</td></tr>'}
       </tbody></table></div>
       <div class="kont-atk-totals">TOTALI · [43]=${this.fmtEuro(purchBoxes.box43)} · [K1]=${this.fmtEuro(purchBoxes.boxK1)} · [67]=${this.fmtEuro(purchBoxes.box67)}</div>`
@@ -556,23 +571,17 @@ const KontabilistiApp = {
 
   async sectionShpenzime() {
     const q = `from=${this.state.applied.from}&to=${this.state.applied.to}`;
-    const [pur, ex] = await Promise.all([KAPI.api(`/purchase-invoices?${q}`), KAPI.api(`/expenses?${q}`)]);
+    const ex = await KAPI.api(`/expenses?${q}`);
     const s = this.state.data.settings || {};
-    const { shpenzimeOp } = this.atkContext();
-    const rows = [];
-    (pur.rows || []).forEach((p) => rows.push({
-      date: p.invoice_date, cat: "Blerje", desc: p.invoice_number || "Faturë", amt: p.grand_total, firm: p.supplier_name,
-    }));
-    (ex.rows || []).forEach((r) => rows.push({
+    const rows = (ex.rows || []).map((r) => ({
       date: r.expense_date, cat: r.category, desc: r.description || "—", amt: r.amount, firm: s.business_legal_name,
     }));
-    rows.push({ date: this.state.applied.to, cat: "Operative", desc: "5% mbi blerjet", amt: shpenzimeOp, firm: s.business_legal_name });
     this._exportPayload["shpenzime-csv"] = () => this.downloadCSV("shpenzime.csv",
       ["Data", "Kategoria", "Përshkrimi", "Shuma"], rows.map((r) => [r.date, r.cat, r.desc, Number(r.amt).toFixed(2)]));
 
     return this.secShell(
       "Shpenzimet",
-      "Regjistrim i brendshëm — blerjet + 5% operative.",
+      "Vetëm shpenzimet e regjistruara.",
       `${this.exportBtn("CSV", "shpenzime-csv")}<button type="button" class="btn btn-primary btn-sm" data-action="print">PDF</button>
        <button type="button" class="btn btn-ai-scan btn-sm" id="kont-scan-exp">📷 Skano Shpenzimin</button>
        <button type="button" class="btn btn-ghost btn-sm" id="goto-exp-module">+ Regjistro shpenzim</button>`,
@@ -587,16 +596,12 @@ const KontabilistiApp = {
 
   async sectionPaga() {
     const ex = await KAPI.api(`/expenses?from=${this.state.applied.from}&to=${this.state.applied.to}`);
-    const s = this.state.data.settings || {};
-    const { t } = this.atkContext();
-    let payrollRows = KONT_ATK.payrollFromExpenses((ex.rows || []).filter((r) => /pag|paga|rroga/i.test(r.category || "")));
-    const fromSales = !payrollRows.length;
-    if (fromSales) payrollRows = KONT_ATK.payrollFromSalesGross(t.salesGross, s);
+    const payrollRows = KONT_ATK.payrollFromExpenses((ex.rows || []).filter((r) => /pag|paga|rroga/i.test(r.category || "")));
     const withholding = KONT_ATK.buildWithholdingTaxFromPayroll(payrollRows);
     const periodLabel = `${this.state.applied.from} — ${this.state.applied.to}`;
-    const note = fromSales
-      ? `Llogaritur nga shitjet bruto ÷ tarifa mesatare për periudhën ${periodLabel}.`
-      : `Llogaritur nga shpenzimet e kategorisë Pagat për periudhën ${periodLabel}.`;
+    const note = payrollRows.length
+      ? `Llogaritur nga shpenzimet e kategorisë Pagat për periudhën ${periodLabel}.`
+      : "Nuk ka paga të regjistruara";
     this._exportPayload["paga-csv"] = () => this.downloadCSV("paga.csv",
       ["Emri", "Mbiemri", "Orë", "Bruto", "Pens.", "Tatim"],
       payrollRows.map((r) => [r.firstName, r.lastName, r.hours.toFixed(1), r.gross.toFixed(2), r.employeePension.toFixed(2), r.tax.toFixed(2)]));
@@ -617,7 +622,7 @@ const KontabilistiApp = {
           </tr></thead><tbody>${payrollRows.length ? payrollRows.map((r) => `<tr>
             <td>${r.firstName}</td><td>${r.lastName}</td><td>${r.individualNumber}</td><td>${r.hours.toFixed(1)}</td>
             <td>${this.fmtEuro(r.gross)}</td><td>${this.fmtEuro(r.employeePension)}</td><td>${this.fmtEuro(r.employerPension)}</td><td>${this.fmtEuro(r.tax)}</td>
-          </tr>`).join("") : '<tr><td colspan="8" class="purchases-empty">Pa paga — regjistro te Shpenzimet → kategoria Pagat</td></tr>'}
+          </tr>`).join("") : '<tr><td colspan="8" class="purchases-empty">Nuk ka paga të regjistruara</td></tr>'}
           </tbody></table></div>
         </div>
         <div class="card kont-sec-card">
@@ -627,7 +632,8 @@ const KontabilistiApp = {
       </div>`;
   },
 
-  sectionQera() {
+  async sectionQera() {
+    await this.loadQiraRows();
     const s = this.state.data.settings || {};
     const rentForm = KONT_ATK.buildRentFormBoxes(this.state.rentRows);
     const rowsHtml = this.state.rentRows.map((r) => {

@@ -1,4 +1,3 @@
-/** Skanim AI me foto — i përbashkët për të gjitha modulet */
 const AiScan = {
   overlay: null,
   mode: "single",
@@ -81,7 +80,7 @@ const AiScan = {
     try {
       const cfg = await KAPI.api("/ai/config");
       hasKey = !!cfg.has_key;
-    } catch { /* ignore */ }
+    } catch {  }
 
     if (!hasKey) {
       KAPI.toast("Vendosni API Key te Cilësimet → AI", true);

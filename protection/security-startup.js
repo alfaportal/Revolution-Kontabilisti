@@ -8,10 +8,9 @@ function isProtectionEnabled() {
   return process.env.KONTABILISTI_PROTECTED === "1" && process.env.DEV_MODE !== "true";
 }
 
-/**
- * Kontrollet e sigurisë kur hapet programi (production).
- * @param {{ appRoot: string, dataDir: string, getDb: () => object, dialog?: object, app?: object }} ctx
- */
+
+
+
 function runSecurityChecks(ctx) {
   const { appRoot, dataDir, getDb, dialog, app } = ctx;
 

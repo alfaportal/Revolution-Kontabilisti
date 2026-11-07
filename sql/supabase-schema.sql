@@ -1,7 +1,3 @@
--- ═══════════════════════════════════════════════════════════
--- Revolution Kontabilisti — Licencat AI
--- Ekzekuto në Supabase SQL Editor (një herë, para deploy)
--- ═══════════════════════════════════════════════════════════
 
 CREATE TABLE IF NOT EXISTS kontabilisti_licenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,7 +23,6 @@ CREATE INDEX IF NOT EXISTS idx_kontabilisti_licenses_key
 CREATE INDEX IF NOT EXISTS idx_kontabilisti_licenses_nui
   ON kontabilisti_licenses (nui);
 
--- Trigger updated_at
 CREATE OR REPLACE FUNCTION kontabilisti_licenses_set_updated()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -40,13 +35,3 @@ DROP TRIGGER IF EXISTS trg_kontabilisti_licenses_updated ON kontabilisti_license
 CREATE TRIGGER trg_kontabilisti_licenses_updated
   BEFORE UPDATE ON kontabilisti_licenses
   FOR EACH ROW EXECUTE FUNCTION kontabilisti_licenses_set_updated();
-
--- ═══ Shembull licence (ndrysho para prod) ═══
--- INSERT INTO kontabilisti_licenses (license_key, business_name, nui, scans_limit, expires_at)
--- VALUES (
---   'REV-KONT-2026-DEMO01',
---   'Demo Biznesi SH.P.K.',
---   '123456789',
---   500,
---   '2027-12-31T23:59:59Z'
--- );

@@ -1,4 +1,3 @@
-/** AI — statistika skanimi (konfigurimi bëhet nga administratori) */
 const AiApp = {
   async init() {
     const cfg = await KAPI.api("/ai/config");

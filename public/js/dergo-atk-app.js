@@ -1,4 +1,3 @@
-/** Modul: Dërgo në ATK — formular zyrtar EDI për kopjim 1:1 */
 const DergoAtkApp = {
   step: 1,
   periodType: "quarterly",
@@ -631,7 +630,7 @@ const DergoAtkApp = {
           </tr></thead>
           <tbody>${data.rows.length ? data.rows.map((r) => {
             let boxes = {};
-            try { boxes = JSON.parse(r.data_json || "{}"); } catch { /* ignore */ }
+            try { boxes = JSON.parse(r.data_json || "{}"); } catch { }
             return `<tr data-id="${r.id}">
               <td>${r.period_label}</td>
               <td>${KAPI.fmtDate(r.period_start)}</td>
@@ -694,7 +693,7 @@ const DergoAtkApp = {
 
   loadHistoryRow(row) {
     let boxes = {};
-    try { boxes = JSON.parse(row.data_json || "{}"); } catch { /* ignore */ }
+    try { boxes = JSON.parse(row.data_json || "{}"); } catch {  }
     this.data = {
       bounds: { start: row.period_start, end: row.period_end, label: row.period_label },
       boxes,

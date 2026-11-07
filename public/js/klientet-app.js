@@ -1,4 +1,3 @@
-/** Klientët B2B — regjistrimi i blerësve për fatura */
 const KlientetApp = {
   async init() {
     const root = document.getElementById("module-root");

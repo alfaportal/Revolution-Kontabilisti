@@ -1,4 +1,3 @@
-/** Kutizat ATK — i njëjti model si Security (pa të dhëna nga Security). */
 const KONT_ATK = (() => {
   const money = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -18,8 +17,8 @@ const KONT_ATK = (() => {
       box10c: b["10c"] || 0,
       box10: money((b["10a"] || 0) + (b["10b"] || 0) + (b["10c"] || 0)),
       box11: 0,
-      box12: t.salesBase18 || 0,
-      box14: t.salesBase8 || 0,
+      box12: t.salesVat18 || 0,
+      box14: t.salesVat8 || 0,
       box16: 0, box18: 0, box20: 0, box22: 0, box24: 0, box26: 0, box28: 0,
       boxK1: t.salesVat18 || 0,
       boxK2: t.salesVat8 || 0,
@@ -31,12 +30,12 @@ const KONT_ATK = (() => {
     return {
       box31: 0, box32: 0, box33: 0, box34: 0, box35: 0, box37: 0,
       box39: 0, box41: 0,
-      box43: t.purchaseBase || 0,
+      box43: t.purchaseVat18 || 0,
       box45: 0,
       box47: 0, box49: 0, box51: 0, box53: 0, box55: 0, box57: 0, box59: 0,
       box61: 0, box63: 0, box65: 0,
-      boxK1: money((t.purchaseVat18 || 0) + (t.expenseVat18 || 0)),
-      boxK2: money((t.purchaseVat8 || 0) + (t.expenseVat8 || 0)),
+      boxK1: t.purchaseVat18 || 0,
+      boxK2: t.purchaseVat8 || 0,
       box67: t.inputVat || 0,
     };
   }

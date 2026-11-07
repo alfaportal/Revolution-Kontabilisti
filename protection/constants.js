@@ -1,4 +1,3 @@
-/** Konstante mbrojtje — Revolution Kontabilisti */
 module.exports = {
   DEVICE_HMAC_SECRET: "REVOLUTION-KONTABILISTI-2026",
   DB_KEY_SECRET: "KONTABILISTI-DB-KEY-2026",

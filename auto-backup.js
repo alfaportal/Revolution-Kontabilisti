@@ -1,7 +1,6 @@
-/**
- * Backup automatik — Desktop\Revolution Backup\<PRODUKTI> (afër ikonës së programit).
- * Minutë (rotacion 3) + ditor (30 ditë) + mujor (12 muaj).
- */
+
+
+
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -25,7 +24,6 @@ const DAILY_SUBDIR = "daily";
 const MONTHLY_SUBDIR = "monthly";
 const BUNDLE_DB_NAME = "backup.db";
 
-/** Scope: vetëm .db, fiscal-keys/, settings-backup.json, sidecars .db-master.* — jo kod burimor. */
 const LICENSE_RESTORE_MESSAGE =
   "Duhet licencë aktive për me rikthy të dhënat. Aktivizoni licencën fillimisht.";
 const DENIED_BACKUP_EXTENSIONS = new Set([
@@ -131,7 +129,6 @@ function resolveFiscalKeysPath(opts, dataDir) {
   return fiscalKeysPath;
 }
 
-/** Kopjon vetëm përmbajtjen e fiscal-keys (anashkalon .js/.html/css dhe node_modules). */
 function copyFiscalKeysDir(srcDir, destDir) {
   if (!fs.existsSync(srcDir)) return false;
   ensureDir(destDir);
@@ -252,7 +249,6 @@ function writeSettingsFile(dir, payload) {
   );
 }
 
-/** Kopjon DB + fiscal-keys + sidecars + settings në një folder bundle. */
 function copyBackupBundle(bundleDir, opts) {
   const dbPath = assertDbPathForBackup(opts.dbPath);
   const dataDir = path.dirname(dbPath);
@@ -406,7 +402,7 @@ function runBackupCycle(opts = {}) {
   copyFileSafe(dbPath, staged);
   const size = fs.statSync(staged).size;
   if (!size) {
-    try { fs.unlinkSync(staged); } catch { /* ignore */ }
+    try { fs.unlinkSync(staged); } catch {  }
     return { ok: false, error: "Backup i databazës doli bosh." };
   }
 
@@ -501,7 +497,7 @@ function listRestoreCatalog(backupDirOrOpts = null) {
     try {
       const s = JSON.parse(fs.readFileSync(path.join(dir, "settings-backup.json"), "utf8"));
       backedAt = s.last_backup_at || s.backed_up_at || backedAt;
-    } catch { /* ignore */ }
+    } catch {  }
     items.push({
       source_type: "latest",
       source_id: "latest",
@@ -678,7 +674,7 @@ function restoreFromBackup(opts = {}) {
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
       if (settings?.last_backup_at) backedAt = settings.last_backup_at;
       else if (settings?.backed_up_at) backedAt = settings.backed_up_at;
-    } catch { /* ignore */ }
+    } catch {  }
   }
 
   const message = `Të dhënat u rikthyen nga backup (${source.label}) i datës ${backedAt}`;
@@ -729,4 +725,3 @@ module.exports = {
   LICENSE_RESTORE_MESSAGE,
   enforceRestoreLicense,
 };
-

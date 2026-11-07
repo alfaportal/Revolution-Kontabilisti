@@ -24,12 +24,12 @@ function buildFullSelfCheck(db, start, end, periodType) {
   const checks = [
     { id: 1, critical: true, ok: emptySales.length === 0 && emptyPurch.length === 0, label: "Krejt faturat e periudhës kanë artikuj" },
     { id: 2, critical: true, ok: round2(b["10a"] + b["10b"] + b["10c"]) === round2(b["11"]), label: "[11] = [10a] + [10b] + [10c]" },
-    { id: 3, critical: true, ok: round2(b["10a"] * 0.18) === round2(b["12"]), label: "[12] = [10a] × 0.18" },
-    { id: 4, critical: true, ok: round2(b["10b"] * 0.08) === round2(b["14"]), label: "[14] = [10b] × 0.08" },
+    { id: 3, critical: true, ok: round2(b["12"]) === round2(totals.salesVat18), label: "[12] = TVSH e shitjeve 18%" },
+    { id: 4, critical: true, ok: round2(b["14"]) === round2(totals.salesVat8), label: "[14] = TVSH e shitjeve 8%" },
     { id: 5, critical: true, ok: round2(b["12"] + b["14"]) === round2(b["16"]), label: "[16] = [12] + [14]" },
     { id: 6, critical: true, ok: round2(b["43"] + b["47"]) === round2(b["65"]), label: "[65] = [43] + [47]" },
-    { id: 7, critical: true, ok: round2(b["31"] * 0.18) === round2(b["43"]), label: "[43] = [31] × 0.18" },
-    { id: 8, critical: true, ok: round2(b["45"] * 0.08) === round2(b["47"]), label: "[47] = [45] × 0.08" },
+    { id: 7, critical: true, ok: round2(b["43"]) === round2(totals.purchaseVat18), label: "[43] = TVSH e blerjeve 18%" },
+    { id: 8, critical: true, ok: round2(b["47"]) === round2(totals.purchaseVat8), label: "[47] = TVSH e blerjeve 8%" },
     { id: 9, critical: true, ok: round2(b.K1 - b.K2 - b["9"]) === round2(b["30"]), label: "[30] = [K1] − [K2] − [9]" },
     { id: 10, critical: true, ok: round2(b["9"]) === round2(totals.priorCredit || 0), label: "[9] = krediti i bartur" },
   ];

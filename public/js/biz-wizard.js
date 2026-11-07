@@ -1,4 +1,3 @@
-/** First-run wizard — regjistrimi obligativ i biznesit */
 const BizWizard = (() => {
   let step = 0;
   let mandatory = false;

@@ -1,7 +1,6 @@
-/**
- * Cloud HTTP — Revolution Kontabilisti license API (publik).
- * https://revolution-pos.com/kontabilisti/api/license/*
- */
+
+
+
 const https = require("https");
 const http = require("http");
 const { URL } = require("url");

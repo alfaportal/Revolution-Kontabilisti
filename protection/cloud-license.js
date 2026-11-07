@@ -1,7 +1,6 @@
-/**
- * Cloud license — device_id, heartbeat via /check, offline 7 ditë, revoke.
- * Storage: %AppData%\\RevolutionInvest\\KontabilistiLicense\\
- */
+
+
+
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -25,7 +24,6 @@ function licenseHardFailMessage(code) {
   return code === "NOT_FOUND" ? NO_LICENSE_MESSAGE : REVOKED_USER_MESSAGE;
 }
 
-/** Pa dialog ErrorBox — vetëm ekrani i aktivizimit (HW) shpjegon hapin tjetër. */
 function isActivationNeededCode(code) {
   return String(code || "").trim() === "NOT_FOUND";
 }
@@ -69,9 +67,9 @@ function getMachineId(app) {
       const id = String(fs.readFileSync(p, "utf8") || "").trim().toUpperCase().replace(/[^A-F0-9]/g, "");
       if (id.length >= 8) return id.slice(0, 12).padEnd(12, "0").slice(0, 12);
     }
-  } catch { /* ignore */ }
+  } catch {  }
   const id = createInstallDeviceId();
-  try { fs.writeFileSync(p, id, "utf8"); } catch { /* ignore */ }
+  try { fs.writeFileSync(p, id, "utf8"); } catch {  }
   return id;
 }
 
@@ -105,7 +103,7 @@ function writeStoredLicense(app, marker) {
 }
 
 function clearStoredLicense(app) {
-  try { fs.unlinkSync(path.join(storageRoot(app), KEY_FILE)); } catch { /* ignore */ }
+  try { fs.unlinkSync(path.join(storageRoot(app), KEY_FILE)); } catch {  }
 }
 
 function writeActivationRecord(app, extra = {}) {
@@ -121,7 +119,7 @@ function writeActivationRecord(app, extra = {}) {
 }
 
 function clearActivationRecord(app) {
-  try { fs.unlinkSync(path.join(storageRoot(app), ACTIVATION_FILE)); } catch { /* ignore */ }
+  try { fs.unlinkSync(path.join(storageRoot(app), ACTIVATION_FILE)); } catch {  }
 }
 
 function readActivationRecord(app) {
@@ -155,7 +153,7 @@ function markLicenseRevokedLocally(app, message) {
 }
 
 function clearLicenseRevokedLocally(app) {
-  try { fs.unlinkSync(path.join(storageRoot(app), REVOKED_FILE)); } catch { /* ignore */ }
+  try { fs.unlinkSync(path.join(storageRoot(app), REVOKED_FILE)); } catch {  }
 }
 
 function readLocalRevokeBlock(app) {
@@ -177,7 +175,6 @@ function wipeAllActivationData(app) {
     const p = path.join(storageRoot(app), ".hw-lic");
     if (fs.existsSync(p)) fs.unlinkSync(p);
   } catch {
-    /* ignore */
   }
 }
 
@@ -194,7 +191,6 @@ function applyRevocationFromCloud(app, code, message, opts = {}) {
     try {
       wipeAllActivationData(app);
     } catch {
-      /* ignore */
     }
     return;
   }
@@ -394,10 +390,9 @@ async function claimByHardwareId(app) {
   return result;
 }
 
-/**
- * Kontroll revokimi para boot-it — NUK mbyll programin vetëm për .lic-revoked.
- * Riaktivizimi pastron markerin; bllokim vetëm nëse serveri konfirmon hard-fail online.
- */
+
+
+
 async function enforceRevokedBlock(app) {
   registerInstallContext(app);
   const probe = { skipHardFail: true };
@@ -412,7 +407,6 @@ async function enforceRevokedBlock(app) {
         return { blocked: false };
       }
     } catch {
-      /* offline — vazhdo te dialog aktivizimi */
     }
   }
 
@@ -431,7 +425,6 @@ async function enforceRevokedBlock(app) {
         try {
           wipeAllActivationData(app);
         } catch {
-          /* ignore */
         }
         return { blocked: false, code: online.code };
       }
@@ -443,7 +436,6 @@ async function enforceRevokedBlock(app) {
       };
     }
   } catch {
-    /* offline */
   }
 
   return { blocked: false };
@@ -556,7 +548,6 @@ function isLicenseActiveLocally(app) {
   return !!readStoredLicense(app) && !!readActivationRecord(app);
 }
 
-/** Cache lokale e vlefshme vetëm pas konfirmimit nga cloud (aktivizim / check OK). */
 function hasServerConfirmedActivation(app) {
   const rec = readActivationRecord(app);
   if (!rec) return false;

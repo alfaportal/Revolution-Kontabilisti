@@ -1,4 +1,3 @@
-/** Shitjet — Z-Raportet ditore (B2C) + Faturat B2B */
 const ShitjetApp = {
   tab: "z",
   periodFrom: "",
@@ -654,6 +653,77 @@ const ShitjetApp = {
     return B2BInvoice.PAY_STATUS_LABELS[s] || s || "—";
   },
 
+  payRowLabel(s) {
+    if (s === "paid") return "Paguar";
+    if (s === "partial") return "Pjesërisht";
+    return "Pa paguar";
+  },
+
+  confirmDeletePayment() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:360px">
+          <h2>Të fshihet kjo pagesë?</h2>
+          <div class="toolbar" style="margin-top:16px">
+            <button type="button" class="btn btn-danger" id="b2b-del-yes">Po</button>
+            <button type="button" class="btn btn-secondary" id="b2b-del-no">Jo</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const close = (v) => { overlay.remove(); resolve(v); };
+      overlay.querySelector("#b2b-del-no").onclick = () => close(false);
+      overlay.querySelector("#b2b-del-yes").onclick = () => close(true);
+      overlay.onclick = (e) => { if (e.target === overlay) close(false); };
+    });
+  },
+
+  openB2BPayment(row) {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const debt = Number(row.debt ?? Math.max(0, (row.grand_total || 0) - (row.amount_paid || 0)));
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:420px">
+        <h2>Regjistro pagesën</h2>
+        <div class="form-grid">
+          <div class="form-group"><label>Shuma e paguar (€)</label>
+            <input type="number" id="b2b-pay-amt" min="0.01" step="0.01" value="${debt > 0 ? debt.toFixed(2) : ""}"></div>
+          <div class="form-group"><label>Data</label>
+            <input type="date" id="b2b-pay-date" value="${today}"></div>
+          <div class="form-group full-width"><label>Shënim</label>
+            <input type="text" id="b2b-pay-note" placeholder="Opsional"></div>
+        </div>
+        <div class="toolbar" style="margin-top:16px">
+          <button type="button" class="btn btn-primary" id="b2b-pay-save">Ruaj</button>
+          <button type="button" class="btn btn-secondary" id="b2b-pay-cancel">Anulo</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#b2b-pay-cancel").onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    overlay.querySelector("#b2b-pay-save").onclick = async () => {
+      try {
+        await KAPI.api("/b2b-payments", {
+          method: "POST",
+          body: {
+            invoice_id: row.id,
+            amount: Number(overlay.querySelector("#b2b-pay-amt").value),
+            date: overlay.querySelector("#b2b-pay-date").value,
+            note: overlay.querySelector("#b2b-pay-note").value,
+          },
+        });
+        KAPI.toast("Pagesa u regjistrua");
+        overlay.remove();
+        KAPI.emitDataChanged();
+      } catch (e) {
+        KAPI.toast(e.message, true);
+      }
+    };
+  },
+
   statusLabel(s) {
     return B2BInvoice.STATUS_LABELS[s] || s;
   },
@@ -774,7 +844,7 @@ const ShitjetApp = {
       </div>
 
       <div class="card"><table class="data-table b2b-table"><thead><tr>
-        <th>Nr.</th><th>Data</th><th>Klienti</th><th>NUI</th><th>Pa TVSH</th><th>TVSH</th><th>Totali</th><th>Pagesa</th><th>Statusi</th><th>Veprime</th>
+        <th>Nr.</th><th>Data</th><th>Klienti</th><th>NUI</th><th>Pa TVSH</th><th>TVSH</th><th>Totali</th><th>Paguar</th><th>Borxhi</th><th>Pagesa</th><th>Statusi</th><th>Veprime</th>
       </tr></thead><tbody>${displayRows.length ? displayRows.map((r) => `<tr class="${r.status === "cancelled" ? "row-cancelled" : ""}">
         <td>${r.invoice_number}</td>
         <td>${KAPI.fmtDate(r.invoice_date)}</td>
@@ -783,20 +853,24 @@ const ShitjetApp = {
         <td>${KAPI.fmt(r.subtotal)}</td>
         <td>${KAPI.fmt(r.vat_total)}</td>
         <td><strong>${KAPI.fmt(r.grand_total)} €</strong></td>
-        <td>${this.payStatusLabel(r.payment_status)}</td>
+        <td>${KAPI.fmt(r.amount_paid || 0)} €</td>
+        <td>${KAPI.fmt(r.debt || 0)} €</td>
+        <td>${this.payRowLabel(r.payment_status)}</td>
         <td><span class="badge badge-${r.status === "finalized" ? "final" : r.status === "cancelled" ? "cancel" : "draft"}">${this.statusLabel(r.status)}</span></td>
         <td class="b2b-actions">
           <button class="btn btn-sm btn-secondary act-view" data-id="${r.id}" title="Shiko">👁</button>
           ${this.photoBtn("b2b", r.id, r.photo_path)}
           ${r.status === "draft" ? `<button class="btn btn-sm btn-primary act-edit" data-id="${r.id}" title="Edito">✏️</button>` : ""}
+          ${r.status === "finalized" ? `<button type="button" class="btn btn-sm btn-primary act-pay" data-id="${r.id}">Regjistro pagesën</button>` : ""}
+          ${(r.payments || []).map((p) => `<span>${KAPI.fmt(p.amount)} € <button type="button" class="btn btn-sm btn-danger act-del-pay" data-id="${p.id}">Fshi</button></span>`).join("")}
           ${r.status === "finalized" ? `<button class="btn btn-sm btn-print act-print" data-id="${r.id}" title="Printo">🖨</button>` : ""}
           ${r.status === "finalized" ? `<button class="btn btn-sm btn-pdf act-pdf" data-id="${r.id}" title="PDF">📄</button>` : ""}
           ${r.status !== "cancelled" ? `<button class="btn btn-sm btn-danger act-cancel" data-id="${r.id}" title="Anulo">❌</button>` : ""}
         </td>
-      </tr>`).join("") : '<tr><td colspan="10" class="empty-state">Pa fatura B2B për këtë periudhë/filtër</td></tr>'}
+      </tr>`).join("") : '<tr><td colspan="12" class="empty-state">Pa fatura B2B për këtë periudhë/filtër</td></tr>'}
       ${finalizedRows.length ? `<tr class="table-total-row"><td colspan="4"><strong>TOTALI (finalizuar)</strong></td>
         <td><strong>${KAPI.fmt(tNet)}</strong></td><td><strong>${KAPI.fmt(tVat)}</strong></td>
-        <td><strong>${KAPI.fmt(tGross)} €</strong></td><td colspan="3"></td></tr>` : ""}
+        <td><strong>${KAPI.fmt(tGross)} €</strong></td><td colspan="5"></td></tr>` : ""}
       </tbody></table></div>`;
 
     document.getElementById("b2b-f-apply").onclick = () => {
@@ -829,6 +903,21 @@ const ShitjetApp = {
       B2BInvoice.exportPdf(this.editingId).catch((e) => KAPI.toast(e.message, true));
     };
 
+    el.querySelectorAll(".act-pay").forEach((b) => b.onclick = () => {
+      const row = displayRows.find((r) => String(r.id) === String(b.dataset.id));
+      if (row) this.openB2BPayment(row);
+    });
+    el.querySelectorAll(".act-del-pay").forEach((b) => b.onclick = async () => {
+      const yes = await this.confirmDeletePayment();
+      if (!yes) return;
+      try {
+        await KAPI.api("/b2b-payments/" + b.dataset.id, { method: "DELETE" });
+        KAPI.toast("Pagesa u fshi");
+        KAPI.emitDataChanged();
+      } catch (e) {
+        KAPI.toast(e.message, true);
+      }
+    });
     el.querySelectorAll(".act-view").forEach((b) => b.onclick = () => this.openB2BForm(Number(b.dataset.id)));
     el.querySelectorAll(".act-edit").forEach((b) => b.onclick = () => this.openB2BForm(Number(b.dataset.id)));
     el.querySelectorAll(".act-print").forEach((b) => b.onclick = () => B2BInvoice.printInvoice(b.dataset.id).catch((e) => KAPI.toast(e.message, true)));

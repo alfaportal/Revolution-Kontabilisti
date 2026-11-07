@@ -6,7 +6,6 @@ function appendSecurityLog(dataDir, message) {
     const line = `[${new Date().toISOString()}] SECURITY: ${message}\n`;
     fs.appendFileSync(path.join(dataDir, "startup.log"), line, "utf8");
   } catch {
-    /* ignore */
   }
 }
 
