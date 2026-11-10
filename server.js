@@ -29,6 +29,7 @@ app.get("/health", (_req, res) => {
     service: "revolution-kontabilisti-server",
     mode: process.env.SUPABASE_URL ? "supabase" : "local-mock",
     anthropic: !!process.env.ANTHROPIC_API_KEY,
+    site_version: "2026-10-16-license-terminals-purge-fix",
   });
 });
 
