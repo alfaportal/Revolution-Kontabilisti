@@ -6,7 +6,6 @@ const path = require("path");
 const { ensureDirs, DATA_DIR, SCANS_DIR, INVOICES_DIR, LICENSE_PATH } = require("./data-paths");
 const { syncDeadlines } = require("./declaration-deadlines");
 
-const ADMIN_PASSWORD = "REVOLUTION2026!";
 const CONFIRM_WORD = "RIVENDOS";
 
 const RESET_TABLES = [
@@ -37,12 +36,9 @@ const SEQUENCE_TABLES = [
   "purchase_invoice_items",
 ];
 
-function validateFactoryResetAuth({ password, confirmWord }) {
+function validateFactoryResetAuth({ confirmWord }) {
   if (String(confirmWord || "").trim() !== CONFIRM_WORD) {
     return { ok: false, error: "Konfirmimi nuk është i saktë." };
-  }
-  if (String(password || "") !== ADMIN_PASSWORD) {
-    return { ok: false, error: "Fjalëkalimi nuk është i saktë. Kontaktoni administratorin." };
   }
   return { ok: true };
 }
@@ -111,7 +107,6 @@ function executeFactoryReset(getDb) {
 }
 
 module.exports = {
-  ADMIN_PASSWORD,
   CONFIRM_WORD,
   validateFactoryResetAuth,
   executeFactoryReset,

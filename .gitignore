@@ -9,6 +9,7 @@ Thumbs.db
 
 dist/
 dist-*/
+dist-build*
 dist-build*/
 dist-obfuscated*/
 dist-obfuscated-staging/

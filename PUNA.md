@@ -1,3 +1,28 @@
+## 2026-11-07 — Setup 1.2.4
+
+- Versioni u ngrit nga 1.2.3 në 1.2.4. Te dritarja shkruan v1.2.4. Skedarët: `package.json`, `public/index.html` rreshti 38.
+- Setup i ri: `dist-build-v1.2.4\Revolution-Kontabilisti-Setup-v1.2.4.exe`, 83,003,405 bajt. Setup-i i vjetër mbeti: `dist-build-v1.2.3\Revolution-Kontabilisti-Setup-v1.2.3.exe`, 83,002,329 bajt, ora 02:41.
+- Brenda hyn edhe rregullimi i Blerjeve, Rivendos pa fjalëkalim, dhe email-i revolutioninvest05@gmail.com. Nuk u instalua në këtë hap.
+
+## 2026-11-07 — Rivendos pa fjalëkalim, email i ri
+
+- Te Rivendos nga Fillimi u hoq fjalëkalimi. Mbetet vetëm fjala RIVENDOS. Skedarët: `public/js/cilesimet-app.js` (dritarja dhe teksti), `factory-reset.js` rreshti 39 (kontrolli).
+- Te Ndihmë, email-i është revolutioninvest05@gmail.com. Skedari: `public/js/cilesimet-app.js` rreshti 555.
+- Prova në databazë të përkohshme: fjala e gabuar u refuzua, RIVENDOS i fshiu të dhënat e proves. Folderi i proves u fshi. Të dhënat e biznesit të vërtetë nuk u prekën. Në programin e instaluar duket vetëm pas një Setup të ri. Nuk u ndërtua.
+
+## 2026-11-07 — Blerjet s’e mbyll më ekranin
+
+- Te Blerjet, kur lista ngarkohej dy herë njëra mbi tjetrën, programi provonte të lidhte butonin «+ Faturë e re», «+ Shpenzim i Ri» ose «+ Regjistro Pagesë» pasi pjesa e vjetër ishte hequr. Delte kartela e kuqe «Cannot set properties of null (setting 'onclick')».
+- Tani, nëse ajo pjesë s’është më në faqe, ngarkimi i vjetër ndalet dhe nuk e prish faqen e re. Butonat lidhen te lista që sapo u shkrua. Skedari: `public/js/blerjet-app.js`, rreshtat 278, 340–365, 382, 420–449, 531, 561.
+- Prova: lista e lidhur jep butonat (faturë, ruaj, anulo, artikull, shpenzim, pagesë). Lista e hequr gjatë pritjes nuk hedh gabim. Në programin e instaluar duket vetëm pas një Setup të ri. Nuk u ndërtua.
+
+## 2026-11-07 — Instaluesi u zvogëlua
+
+- Setup-i i vjetër nuk hyn më brenda të riut. `dist-build*` lihet jashtë. Skedarët: `package.json`, `scripts/build-protected.js`, `scripts/obfuscate.js`, `.gitignore`.
+- Nga `sql.js` mbeten vetëm `sql-wasm.js` dhe `sql-wasm.wasm`. Wasm nuk kopjohet edhe një herë te extraResources.
+- Folderi i vjetër `dist-build-v1.2.3` u fshi dhe u ndërtua përsëri. Instaluesi i ri: **83,002,329 bajt (79.2 MB)**. Brenda nuk ka Setup të vjetër dhe nuk ka skedarët debug të sql.js.
+- Në programin e instaluar duket vetëm pasi instalohet, mbyllet programi dhe hapet përsëri.
+
 ## 2026-11-07 — Ndërtim i pastër 1.2.3
 
 - Databaza e re: tabelat krijohen bosh. Fatura, klientë, shpenzime, Z-raporte, blerje dhe pagesa B2B = 0. Një rresht bosh te cilësimet, që të dalë regjistrimi i biznesit. 9 data afatesh të vitit (jo fatura). Nuk u hoq asgjë, sepse s’kishte të dhëna prove.

@@ -30,6 +30,8 @@ const SKIP_DIRS = new Set([
 function shouldSkipDir(name) {
   if (SKIP_DIRS.has(name)) return true;
   if (name.startsWith("dist-obfuscated")) return true;
+  if (name.startsWith("dist-build")) return true;
+  if (name.startsWith("dist-")) return true;
   return false;
 }
 

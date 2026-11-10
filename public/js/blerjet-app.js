@@ -275,6 +275,7 @@ const BlerjetApp = {
       KAPI.api("/purchase-invoices"),
       KAPI.api("/next-purchase-number"),
     ]);
+    if (!el || !el.isConnected) return;
     const suppliers = new Set(data.rows.map((r) => r.supplier_name)).size;
 
     el.innerHTML = `
@@ -336,19 +337,25 @@ const BlerjetApp = {
       CE.save(`blerjet_${CE.monthSuffix(new Date().toISOString().slice(0, 10))}.csv`, headers, csvRows);
     });
 
-    document.getElementById("add-pur").onclick = () => this.showNewInvoiceChoice();
-    document.getElementById("cancel-pur").onclick = () => {
-      document.getElementById("pur-form").style.display = "none";
+    const addPur = el.querySelector("#add-pur");
+    const cancelPur = el.querySelector("#cancel-pur");
+    const addPurLine = el.querySelector("#add-pur-line");
+    const savePur = el.querySelector("#save-pur");
+    if (addPur) addPur.onclick = () => this.showNewInvoiceChoice();
+    if (cancelPur) cancelPur.onclick = () => {
+      const form = el.querySelector("#pur-form");
+      if (form) form.style.display = "none";
       this.pendingPhoto = null;
     };
     this.bindItemRows();
-    document.getElementById("add-pur-line").onclick = () => {
-      const itemsEl = document.getElementById("pur-items");
+    if (addPurLine) addPurLine.onclick = () => {
+      const itemsEl = el.querySelector("#pur-items");
+      if (!itemsEl) return;
       const idx = itemsEl.querySelectorAll(".pur-line").length;
       itemsEl.insertAdjacentHTML("beforeend", this.itemRowHtml({}, idx));
       this.bindItemRows();
     };
-    document.getElementById("save-pur").onclick = async () => {
+    if (savePur) savePur.onclick = async () => {
       try {
         await KAPI.api("/purchase-invoices", { method: "POST", body: this.buildSaveBody() });
         KAPI.toast("Blerja u ruajt — TVSH hyrëse u përditësua");
@@ -372,6 +379,7 @@ const BlerjetApp = {
   async renderExpenses() {
     const el = document.getElementById("blerjet-content");
     const data = await KAPI.api("/expenses");
+    if (!el || !el.isConnected) return;
     const total = data.rows.reduce((a, r) => a + Number(r.amount || 0), 0);
     const vatIn = data.rows.reduce((a, r) => a + Number(r.vat_amount || 0), 0);
 
@@ -409,7 +417,11 @@ const BlerjetApp = {
         <td class="table-actions">${this.photoBtn("exp", r.id, r.photo_path)}<button class="btn btn-sm btn-danger del-exp" data-id="${r.id}">Fshi</button></td>
       </tr>`).join("") || "<tr><td colspan=\"6\">Pa shpenzime</td></tr>"}</tbody></table></div>`;
 
-    document.getElementById("add-exp").onclick = () => { document.getElementById("exp-form").style.display = "block"; };
+    const addExp = el.querySelector("#add-exp");
+    if (addExp) addExp.onclick = () => {
+      const form = el.querySelector("#exp-form");
+      if (form) form.style.display = "block";
+    };
     document.getElementById("scan-exp-ai")?.addEventListener("click", () => this.openExpenseAiScan());
     document.getElementById("scan-exp-batch")?.addEventListener("click", () => this.openExpenseAiScanBatch());
     this.bindPhotoButtons(el);
@@ -427,11 +439,14 @@ const BlerjetApp = {
       }
       CE.save(`shpenzimet_${CE.monthSuffix(new Date().toISOString().slice(0, 10))}.csv`, headers, csvRows);
     });
-    document.getElementById("cancel-exp").onclick = () => {
-      document.getElementById("exp-form").style.display = "none";
+    const cancelExp = el.querySelector("#cancel-exp");
+    const saveExp = el.querySelector("#save-exp");
+    if (cancelExp) cancelExp.onclick = () => {
+      const form = el.querySelector("#exp-form");
+      if (form) form.style.display = "none";
       this.pendingExpensePhoto = null;
     };
-    document.getElementById("save-exp").onclick = async () => {
+    if (saveExp) saveExp.onclick = async () => {
       try {
         const vatRate = Number(document.getElementById("e_vat").value);
         const body = {
@@ -513,6 +528,7 @@ const BlerjetApp = {
   async renderPayments() {
     const el = document.getElementById("blerjet-content");
     const data = await KAPI.api("/purchase-invoices");
+    if (!el || !el.isConnected) return;
     const rows = data.rows || [];
     const totalPurch = rows.reduce((a, r) => a + Number(r.grand_total || 0), 0);
     const totalPaid = rows.reduce((a, r) => a + Number(r.amount_paid || 0), 0);
@@ -542,7 +558,8 @@ const BlerjetApp = {
       </tr>`).join("") : '<tr><td colspan="7">Pa fatura blerjeje</td></tr>'}
       </tbody></table></div>`;
 
-    document.getElementById("add-payment").onclick = () => this.openPaymentDialog(rows.filter((r) => (r.debt || 0) > 0.01));
+    const addPayment = el.querySelector("#add-payment");
+    if (addPayment) addPayment.onclick = () => this.openPaymentDialog(rows.filter((r) => (r.debt || 0) > 0.01));
     el.querySelectorAll(".pay-quick").forEach((btn) => {
       btn.onclick = () => {
         const inv = rows.find((r) => String(r.id) === btn.dataset.id);

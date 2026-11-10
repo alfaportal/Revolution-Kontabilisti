@@ -78,8 +78,8 @@ async function main() {
   const srv = await startOnPort(0);
   const req = makeReq(srv.address().port);
 
-  const bad = await req("POST", "/admin/factory-reset", { confirmWord: "RIVENDOS", password: "wrong" });
-  const good = await req("POST", "/admin/factory-reset", { confirmWord: "RIVENDOS", password: "REVOLUTION2026!" });
+  const bad = await req("POST", "/admin/factory-reset", { confirmWord: "gabim" });
+  const good = await req("POST", "/admin/factory-reset", { confirmWord: "RIVENDOS" });
 
   const z = db.prepare("SELECT COUNT(*) as c FROM z_reports").get().c;
   const cl = db.prepare("SELECT COUNT(*) as c FROM clients").get().c;
@@ -92,7 +92,7 @@ async function main() {
   const nextZ = (await req("GET", "/next-z-report-number")).number;
   const complete = (await req("GET", "/settings")).complete;
 
-  const ok = bad.status === 403
+  const ok = bad.status === 400
     && good.ok === true
     && z === 0 && cl === 0
     && !s.business_legal_name && !s.nui

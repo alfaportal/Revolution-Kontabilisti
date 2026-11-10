@@ -366,11 +366,9 @@ const CilesimetApp = {
       <div id="factory-reset-step2" class="modal-overlay" style="display:none">
         <div class="modal" style="max-width:520px">
           <h2>⚠️ Rivendos nga Fillimi</h2>
-          <p class="hint" style="margin-bottom:14px">Shkruani <strong>RIVENDOS</strong> dhe fjalëkalimin e administratorit.</p>
+          <p class="hint" style="margin-bottom:14px">Shkruani <strong>RIVENDOS</strong>.</p>
           <div class="form-group"><label>Konfirmimi *</label>
             <input type="text" id="fr-confirm-word" placeholder="RIVENDOS" autocomplete="off"></div>
-          <div class="form-group"><label>Fjalëkalimi i administratorit *</label>
-            <input type="password" id="fr-password" autocomplete="off"></div>
           <p id="fr-error" class="wizard-errors" style="display:none;margin-top:8px"></p>
           <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
             <button type="button" class="btn btn-secondary" id="fr-step2-cancel">Anulo</button>
@@ -473,8 +471,7 @@ const CilesimetApp = {
         <h3>⚠️ ZONA E ADMINISTRATORIT</h3>
         <p class="admin-zone-title">Rivendos nga Fillimi</p>
         <p class="admin-zone-desc">Fshin <strong>TË GJITHA</strong> të dhënat dhe fillon nga zero.<br>
-        Vetëm për instalim te biznes i ri.<br>
-        Kërkon fjalëkalimin e administratorit.</p>
+        Vetëm për instalim te biznes i ri.</p>
         <button type="button" class="btn btn-danger admin-reset-btn" id="factory-reset-btn">⚠️ Rivendos nga Fillimi</button>
       </div>`;
   },
@@ -500,7 +497,6 @@ const CilesimetApp = {
     document.getElementById("fr-step1-continue")?.addEventListener("click", () => {
       step1.style.display = "none";
       document.getElementById("fr-confirm-word").value = "";
-      document.getElementById("fr-password").value = "";
       if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
       step2.style.display = "flex";
       document.getElementById("fr-confirm-word")?.focus();
@@ -511,7 +507,6 @@ const CilesimetApp = {
 
     const runReset = async () => {
       const confirmWord = document.getElementById("fr-confirm-word")?.value?.trim() || "";
-      const password = document.getElementById("fr-password")?.value || "";
       if (confirmWord !== "RIVENDOS") {
         if (errEl) {
           errEl.textContent = "Shkruani saktësisht RIVENDOS (me shkronja të mëdha).";
@@ -521,10 +516,10 @@ const CilesimetApp = {
       }
       try {
         if (window.kontabilisti?.factoryReset) {
-          const r = await window.kontabilisti.factoryReset({ confirmWord, password });
+          const r = await window.kontabilisti.factoryReset({ confirmWord });
           if (!r.ok) {
             if (errEl) {
-              errEl.textContent = r.error || "Fjalëkalimi nuk është i saktë. Kontaktoni administratorin.";
+              errEl.textContent = r.error || "Konfirmimi nuk është i saktë.";
               errEl.style.display = "block";
             }
             return;
@@ -533,7 +528,7 @@ const CilesimetApp = {
         }
         const r = await KAPI.api("/admin/factory-reset", {
           method: "POST",
-          body: { confirmWord, password },
+          body: { confirmWord },
         });
         if (r.restart) {
           KAPI.toast("Të dhënat u fshinë — programi rifreskohet");
@@ -541,14 +536,14 @@ const CilesimetApp = {
         }
       } catch (e) {
         if (errEl) {
-          errEl.textContent = e.message || "Fjalëkalimi nuk është i saktë. Kontaktoni administratorin.";
+          errEl.textContent = e.message || "Konfirmimi nuk është i saktë.";
           errEl.style.display = "block";
         }
       }
     };
 
     document.getElementById("fr-step2-execute")?.addEventListener("click", runReset);
-    document.getElementById("fr-password")?.addEventListener("keydown", (e) => {
+    document.getElementById("fr-confirm-word")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") runReset();
     });
   },
@@ -557,7 +552,7 @@ const CilesimetApp = {
     document.getElementById("set-content").innerHTML = `
       <div class="card"><h3>Ndihmë nga Largësia</h3>
         <p style="margin:12px 0">Për mbështetje teknike, kontaktoni Revolution Invest:</p>
-        <p>📧 support@revolutioninvest.com</p>
+        <p>📧 revolutioninvest05@gmail.com</p>
         <a class="btn btn-primary" href="https://anydesk.com/en/downloads/windows" target="_blank">Shkarko AnyDesk</a>
       </div>`;
   },
