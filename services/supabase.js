@@ -164,7 +164,7 @@ async function incrementScanByDevice(deviceId, logMeta = {}) {
 }
 
 async function createLicense(body) {
-  const dev = normalizeDeviceId(body.device_id);
+  const dev = normalizeDeviceId(body.device_id || body.hardware_id);
   if (!dev || !isValidDeviceId(dev)) throw new Error("device_id i pavlefshëm");
 
   const existing = await findByDevice(dev);
@@ -173,8 +173,13 @@ async function createLicense(body) {
   const plan = body.plan || "standard";
   const defs = planDefaults(plan);
   const months = Number(body.duration_months) || defs.months;
-  const licenseKey = uuidV4();
-  const expires = addMonths(new Date(), months);
+  const passedKey = String(body.license_key || body.celesi || "").trim().toUpperCase();
+  const licenseKey = passedKey || uuidV4();
+  let expires = addMonths(new Date(), months);
+  if (passedKey && body.expires_at) {
+    const raw = String(body.expires_at).slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) expires = `${raw}T23:59:59.999Z`;
+  }
 
   const row = {
     id: uuidV4(),
@@ -196,7 +201,7 @@ async function createLicense(body) {
     mock.licenses.push(row);
     return row;
   }
-  const { data, error } = await getClient().from("licenses").insert({
+  const insertRow = {
     device_id: dev,
     business_name: row.business_name,
     owner_name: row.owner_name,
@@ -208,9 +213,32 @@ async function createLicense(body) {
     scans_limit: row.scans_limit,
     expires_at: expires,
     notes: body.notes || null,
-  }).select("*").single();
-  if (error) throw error;
-  return { ...data, license_key: licenseKey };
+  };
+  if (passedKey) insertRow.license_key = passedKey;
+  const { data, error } = await getClient().from("licenses").insert(insertRow).select("*").single();
+  if (error) {
+    if (passedKey && /license_key/i.test(String(error.message || error.details || ""))) {
+      throw new Error("Mungon kolona license_key te tabela licenses.");
+    }
+    throw error;
+  }
+  return { ...data, license_key: data.license_key || licenseKey };
+}
+
+async function claimLicenseByHardware(hardwareId) {
+  const lic = await findByDevice(hardwareId);
+  if (!lic) return null;
+  const expired = lic.expires_at && new Date(lic.expires_at) < new Date();
+  const status = expired ? "expired" : (lic.status || "active");
+  const key = String(lic.license_key || "").trim();
+  const active = status === "active";
+  return {
+    active,
+    celesi: active ? key : "",
+    license_key: active ? key : "",
+    expiry_date: dateOnly(lic.expires_at),
+    status,
+  };
 }
 
 async function updateLicenseByDevice(deviceId, action, value) {
@@ -402,6 +430,7 @@ module.exports = {
   validateForScan,
   incrementScanByDevice,
   createLicense,
+  claimLicenseByHardware,
   updateLicenseByDevice,
   updateLicenseById,
   rotateLicenseKeyById,

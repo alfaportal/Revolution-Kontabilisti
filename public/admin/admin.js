@@ -84,6 +84,9 @@ function showCreateForm() {
       <h3>+ Licencë e Re</h3>
       <label>Device ID *</label>
       <input id="c_device" placeholder="XXXX-XXXX-XXXX-XXXX">
+      <button type="button" class="btn btn-secondary" id="c_gen" style="margin:8px 0">Gjenero Çelësin</button>
+      <label>Çelësi</label>
+      <input id="c_key" readonly>
       <label>Emri biznesit</label>
       <input id="c_biz">
       <label>Pronari</label>
@@ -101,14 +104,28 @@ function showCreateForm() {
       <button class="btn btn-primary" id="c_submit" style="margin-top:12px">KRIJO DHE AKTIVIZO</button>
       <button class="btn btn-secondary" id="c_cancel" style="margin-top:8px">Anulo</button>
     </div>`;
+  let generatedExpiry = "";
+  document.getElementById("c_gen").onclick = async () => {
+    try {
+      const data = await api("/generate-license-key", {
+        method: "POST",
+        body: { hardware_id: document.getElementById("c_device").value.trim() },
+      });
+      document.getElementById("c_key").value = data.license_key || "";
+      generatedExpiry = data.expiry_date || "";
+    } catch (e) { alert(e.message); }
+  };
   document.getElementById("c_cancel").onclick = () => { box.classList.add("hidden"); box.innerHTML = ""; };
   document.getElementById("c_submit").onclick = async () => {
     const plan = document.querySelector('input[name="plan"]:checked')?.value || "standard";
+    const licenseKey = document.getElementById("c_key").value.trim();
     try {
       await api("/license/create", {
         method: "POST",
         body: {
           device_id: document.getElementById("c_device").value.trim(),
+          license_key: licenseKey || undefined,
+          expires_at: licenseKey ? generatedExpiry : undefined,
           business_name: document.getElementById("c_biz").value.trim(),
           owner_name: document.getElementById("c_owner").value.trim(),
           phone: document.getElementById("c_phone").value.trim(),

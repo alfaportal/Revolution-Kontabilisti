@@ -15,8 +15,11 @@ CREATE TABLE IF NOT EXISTS licenses (
   expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '1 year',
   last_scan_at TIMESTAMPTZ,
   last_check_at TIMESTAMPTZ,
-  notes TEXT
+  notes TEXT,
+  license_key TEXT
 );
+
+ALTER TABLE public.licenses ADD COLUMN IF NOT EXISTS license_key text;
 
 CREATE TABLE IF NOT EXISTS scan_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

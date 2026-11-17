@@ -81,4 +81,43 @@ router.post("/activate", async (req, res) => {
   }
 });
 
+router.post("/by-hardware", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const hardwareId = body.hardware_id || body.hardwareId || body.device_id;
+    if (!hardwareId || !isValidDeviceId(hardwareId)) {
+      return res.status(400).json({
+        valid: false,
+        code: "NOT_FOUND",
+        message: "Hardware ID i pavlefshëm.",
+      });
+    }
+    const result = await db.claimLicenseByHardware(hardwareId);
+    if (!result) {
+      return res.status(404).json({
+        valid: false,
+        code: "NOT_FOUND",
+        message: "Nuk ka licencë për këtë ID.",
+      });
+    }
+    if (!result.active) {
+      return res.status(403).json({
+        valid: false,
+        status: result.status,
+        expiry_date: result.expiry_date,
+        code: String(result.status || "revoked").toUpperCase(),
+        message: "Licenca nuk është aktive.",
+      });
+    }
+    res.json({
+      celesi: result.celesi,
+      license_key: result.license_key,
+      expiry_date: result.expiry_date,
+      status: result.status,
+    });
+  } catch (e) {
+    res.status(500).json({ valid: false, status: "error", message: e.message });
+  }
+});
+
 module.exports = router;

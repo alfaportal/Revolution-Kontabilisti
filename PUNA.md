@@ -1,5 +1,22 @@
 # PUNA.md — revolution-kontabilisti-server
 
+## 2026-11-17 — Çelësi nga Hardware ID
+
+Faqja Licencat ka «Gjenero Çelësin». Ruajtja e ruan atë çelës bashkë me ID. Programi e merr te `/api/license/by-hardware`. Pa build. Pa git. Live jo.
+
+| Skedar | Ndryshimi |
+|--------|-----------|
+| `hardwareLicense.js` | Çelësi SHA256 nga ID, kripë e Kontabilistit |
+| `routes/admin.js` | POST /api/admin/generate-license-key |
+| `routes/license.js` | POST /api/license/by-hardware |
+| `services/supabase.js` | Ruajtja e çelësit dhe kërkimi me ID |
+| `public/admin/admin.js` | Butoni dhe fusha e çelësit |
+| `supabase-schema.sql` | Kolona license_key |
+
+Duhet ekzekutuar te Supabase i Kontabilistit, vetëm nëse kolona mungon:
+
+`ALTER TABLE public.licenses ADD COLUMN IF NOT EXISTS license_key text;`
+
 ## 2026-11-02 — ENABLE_RLS.sql (vetëm skedar, pa ekzekutim)
 
 | Skedar | Ndryshimi |

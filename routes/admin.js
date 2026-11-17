@@ -9,6 +9,7 @@ const {
 } = require("../services/owner-credentials");
 const db = require("../services/supabase");
 const { planDefaults } = require("../services/supabase-plans");
+const { generateKeyFromId } = require("../hardwareLicense");
 
 const router = express.Router();
 
@@ -80,6 +81,22 @@ router.get("/dashboard", requireAdmin, async (_req, res) => {
     res.json(stats);
   } catch (e) {
     res.status(500).json({ status: "error", message: e.message });
+  }
+});
+
+router.post("/generate-license-key", requireAdmin, async (req, res) => {
+  try {
+    const hardwareId = req.body?.hardware_id || req.body?.hardwareId || req.body?.device_id || "";
+    const expiry = new Date();
+    expiry.setUTCHours(0, 0, 0, 0);
+    expiry.setUTCDate(expiry.getUTCDate() + 365);
+    const license_key = generateKeyFromId(hardwareId, expiry);
+    const y = expiry.getUTCFullYear();
+    const m = String(expiry.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(expiry.getUTCDate()).padStart(2, "0");
+    res.json({ license_key, expiry_date: `${y}-${m}-${d}` });
+  } catch (e) {
+    res.status(400).json({ status: "error", message: e.message || "ID e pavlefshme." });
   }
 });
 
