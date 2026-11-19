@@ -1,3 +1,7 @@
+## 2026-11-17 — Setup 1.2.5
+
+Version `1.2.4` → `1.2.5`. Komanda `npm run build`. Doli `dist-build-v1.2.5\Revolution-Kontabilisti-Setup-v1.2.5.exe`. 1.2.4 mbetet.
+
 ## 2026-11-07 — Setup 1.2.4
 
 - Versioni u ngrit nga 1.2.3 në 1.2.4. Te dritarja shkruan v1.2.4. Skedarët: `package.json`, `public/index.html` rreshti 38.
